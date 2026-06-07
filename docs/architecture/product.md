@@ -94,7 +94,7 @@ control. The boundary between them is sacred (see §6).
 | Score     | `apps/worker` scoring jobs → `packages/ai` → `database`                    |
 | Assess    | `apps/worker` risk jobs → `packages/ai` → `database`                       |
 | Draft     | `apps/api` (on demand) or `apps/worker` (pre-draft) → `packages/ai`        |
-| Review    | `apps/web` dashboard → tRPC → `apps/api`                                   |
+| Review    | `apps/web` dashboard → REST API → `apps/api`                               |
 | Publish   | **The user, manually, off-platform.** The product only provides the draft. |
 
 ---

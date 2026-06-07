@@ -1,10 +1,10 @@
 # Backend Architecture (NestJS API)
 
-`apps/api` is the **NestJS** backend (ADR-002). It hosts the tRPC router, owns all
+`apps/api` is the **NestJS** backend (ADR-002). It exposes the REST API, owns all
 business logic and authorization, and is the only service that exposes an HTTP interface
 to the web app. This document defines its layering, module structure, and conventions.
 
-Related: [`api-design.md`](api-design.md) (the tRPC contract), [`database.md`](database.md)
+Related: [`api-design.md`](api-design.md) (the REST contract), [`database.md`](database.md)
 (the data layer), and [`apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md).
 
 ---
@@ -13,7 +13,7 @@ Related: [`api-design.md`](api-design.md) (the tRPC contract), [`database.md`](d
 
 **The API owns:**
 
-- The tRPC router host (mounted at `/trpc`) and request context.
+- The REST API surface (feature controllers) and request handling.
 - Authentication (Better Auth) and authorization (per-user scoping).
 - Business logic (services) and database access (repositories).
 - Enqueuing background work to the worker (it does **not** run heavy work itself).
@@ -23,7 +23,7 @@ Related: [`api-design.md`](api-design.md) (the tRPC contract), [`database.md`](d
 - Render UI (that's `web`).
 - Run long/external-I/O/high-volume jobs inline (that's `worker`).
 - Call AI vendors directly (that's `packages/ai`).
-- Reach into another app. It depends on `trpc`, `database`, `shared`, `config`, `ai`.
+- Reach into another app. It depends on `database`, `shared`, `config`, `ai`.
 
 ---
 
@@ -32,10 +32,10 @@ Related: [`api-design.md`](api-design.md) (the tRPC contract), [`database.md`](d
 A request flows through clear layers, each with one job:
 
 ```
-HTTP → /trpc middleware
+HTTP → feature controller
         │
         ▼
-   tRPC procedure (router)   validate input (Zod), check auth tier, delegate. THIN.
+   Controller route          validate input (Zod), check auth guard, delegate. THIN.
         │
         ▼
       Service                business logic, orchestration, authorization decisions
@@ -49,7 +49,7 @@ HTTP → /trpc middleware
 
 **The golden rule: each layer only talks to the one below it.**
 
-- Procedures never touch Prisma or hold logic.
+- Controllers never touch Prisma or hold logic.
 - Services never touch Prisma directly — they go through repositories.
 - Repositories never hold business logic — they read/write and map types.
 
@@ -77,14 +77,14 @@ apps/api/src/
     │   └── health.controller.ts
     └── opportunity/                # target shape of a real feature
         ├── opportunity.module.ts
-        ├── opportunity.router.ts   # tRPC procedures (the public surface)
-        ├── opportunity.service.ts  # business logic
+        ├── opportunity.controller.ts  # REST endpoints (the public surface)
+        ├── opportunity.service.ts     # business logic
         ├── opportunity.repository.ts
         └── dto/
             └── list-opportunities.input.ts   # Zod input schema (composed from shared)
 ```
 
-New features add a module here and merge their router into the root `appRouter` (see
+New features add a module here and register their controller (see
 [`api-design.md`](api-design.md) §2). Cross-cutting concerns (auth guards, exception
 filters) live in `common/`, not duplicated per feature.
 
@@ -92,21 +92,20 @@ filters) live in `common/`, not duplicated per feature.
 
 `AppModule` imports `ConfigModule.forRoot({ isGlobal: true, load: [configuration] })` and
 the `HealthModule`. `main.ts` creates the app, enables shutdown hooks, reads the port from
-config (default 4000), and listens. `GET /health` returns `{ status: "ok" }`. The tRPC
-middleware and Better Auth handler are placeholders to be wired up (see
-`apps/api/src/trpc/README.md` and `config/auth.ts`).
+config (default 4000), and listens. `GET /health` returns `{ status: "ok" }`. Feature
+controllers and the Better Auth handler are not wired up yet (see `config/auth.ts`).
 
 ---
 
 ## 4. Layer responsibilities in detail
 
-### tRPC procedures (the controller layer)
+### Controllers (the HTTP layer)
 
-- Live in `<feature>.router.ts`. Validate input with Zod, select the auth tier
-  (`publicProcedure`/`protectedProcedure`), call exactly one service method, return its
-  result. No logic, no Prisma, no try/catch-and-swallow.
-- NestJS REST controllers (`*.controller.ts`) are used only for non-tRPC HTTP endpoints
-  (health probes, the Better Auth handler, webhooks). Business endpoints are tRPC.
+- Live in `<feature>.controller.ts`. Validate input with Zod, apply the auth guard for
+  protected routes, call exactly one service method, return its result. No logic, no
+  Prisma, no try/catch-and-swallow.
+- Every HTTP endpoint is a controller route — feature resources, health probes, the Better
+  Auth handler, and webhooks alike.
 
 ### Services
 
@@ -152,8 +151,9 @@ middleware and Better Auth handler are placeholders to be wired up (see
 
 ## 7. Error handling
 
-- Throw **typed `TRPCError`s** from procedures/services with correct codes (see
-  [`api-design.md`](api-design.md) §6). Expected failures are typed errors, not 500s.
+- Throw **typed `HttpException` subclasses** from controllers/services with correct status
+  codes (see [`api-design.md`](api-design.md) §6). Expected failures are typed errors, not
+  500s.
 - Use a **global exception filter** (in `common/`) to map uncaught errors to safe
   responses and report unexpected ones to **Sentry** with request context (no PII).
 - Use the NestJS **`Logger`** for structured logging. No `console.log` in the API.
@@ -185,8 +185,8 @@ See [`worker-architecture.md`](worker-architecture.md).
 - **Services:** unit-test logic with fake repositories; integration-test against a real
   test Postgres for anything query-dependent.
 - **Repositories:** integration-test against a test DB (don't mock Prisma).
-- **Procedures:** test end-to-end with a tRPC caller and a built context, asserting auth
-  tiers and error codes.
+- **Controllers:** test end-to-end via Nest's testing module (HTTP), asserting auth guards
+  and error statuses.
 - Push pure logic (scoring math, validation helpers) into `shared`/`ai` where it's
   trivially unit-testable. See [`CLAUDE.md`](../../CLAUDE.md) §11.
 
@@ -194,9 +194,9 @@ See [`worker-architecture.md`](worker-architecture.md).
 
 ## 10. Anti-patterns (do not do)
 
-- Prisma calls in a procedure, controller, or service-doing-something-else.
-- Business logic in a procedure or repository.
-- Returning Prisma types across the tRPC boundary.
+- Prisma calls in a controller, or a service-doing-something-else.
+- Business logic in a controller or repository.
+- Returning Prisma types across the API boundary.
 - Reading `process.env` directly outside config.
 - Running scraping / bulk AI / long loops inside a request.
 - Accepting `userId` from the client for ownership instead of the session.

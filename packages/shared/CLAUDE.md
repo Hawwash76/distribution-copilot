@@ -68,7 +68,7 @@ src/
   source.
 - **Reusable shape across services** (e.g. a new pagination/result wrapper): add it to
   `types/`. If it needs runtime validation, make it a schema in `schemas/`.
-- Consumers: tRPC procedures validate inputs with these schemas; the web app validates
+- Consumers: controller routes validate inputs with these schemas; the web app validates
   forms with the same ones; repositories map Prisma rows _to_ these types.
 
 ## Commands

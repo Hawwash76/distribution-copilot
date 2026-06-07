@@ -1,7 +1,7 @@
 # Domain Model — Distribution Copilot
 
 This is the **shared vocabulary** of the product. Every entity name here should be used
-verbatim in code, Zod schemas, Prisma models, tRPC routers, and UI copy. A consistent
+verbatim in code, Zod schemas, Prisma models, controller routes, and UI copy. A consistent
 ubiquitous language is what keeps a growing codebase legible.
 
 > **Status.** Today only `User` and `Product` exist in `prisma/schema.prisma` and as Zod
@@ -17,16 +17,16 @@ See [`product.md`](product.md) for the loop these entities serve, and
 
 ## 1. Where the model lives (single source of truth)
 
-| Concern                   | Source of truth                                     |
-| ------------------------- | --------------------------------------------------- |
-| Persistent shape (tables) | `prisma/schema.prisma`                              |
-| Domain types & validation | Zod schemas in `packages/shared/src/schemas/*`      |
-| Application/runtime types | `z.infer<typeof xSchema>` re-exported from `shared` |
-| API contract              | `packages/trpc` (procedures use the Zod schemas)    |
+| Concern                   | Source of truth                                                               |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| Persistent shape (tables) | `prisma/schema.prisma`                                                        |
+| Domain types & validation | Zod schemas in `packages/shared/src/schemas/*`                                |
+| Application/runtime types | `z.infer<typeof xSchema>` re-exported from `shared`                           |
+| API contract              | NestJS controllers in `apps/api` (use the Zod schemas from `packages/shared`) |
 
 **Rule:** a domain type is declared once, as a Zod schema in `shared`, and inferred
 everywhere else. Prisma model shape and Zod schema must be kept in agreement, but Prisma
-types **do not cross the tRPC boundary** — repositories map Prisma rows to domain types.
+types **do not cross the API boundary** — repositories map Prisma rows to domain types.
 See [`CLAUDE.md`](../../CLAUDE.md) §4 and §6.
 
 ---

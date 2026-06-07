@@ -91,13 +91,12 @@ packages are shared libraries. All workspace packages are namespaced
 distribution-copilot/
 ├── apps/
 │   ├── web/        Next.js (App Router) frontend — the founder's dashboard
-│   ├── api/        NestJS backend — hosts the tRPC router; owns business logic
+│   ├── api/        NestJS backend — the REST API; owns business logic
 │   └── worker/     BullMQ worker — background discovery/scoring/embedding jobs
 │
 ├── packages/
-│   ├── trpc/       tRPC router + context + builders — the API contract
 │   ├── database/   Prisma client wrapper (schema lives at /prisma)
-│   ├── shared/     Framework-free Zod schemas, domain types, pure utils
+│   ├── shared/     Framework-free Zod schemas (the web↔api contract), domain types, pure utils
 │   ├── ai/         AI prompts + provider abstraction + orchestration
 │   ├── ui/         Shared shadcn/ui primitives (the `cn` helper today)
 │   └── config/     Runtime config: app constants + env schema
@@ -113,9 +112,9 @@ distribution-copilot/
 Browser
   │  React Server/Client Components, TanStack Query
   ▼
-apps/web  ──(tRPC over HTTP, typed via @distribution-copilot/trpc)──►  apps/api
+apps/web  ──(REST over HTTP/JSON, shapes from @distribution-copilot/shared)──►  apps/api
                                                                           │
-                                          tRPC router → Service → Repository → Prisma
+                                          Controller → Service → Repository → Prisma
                                                                           ▼
                                                               PostgreSQL + pgvector
   ┌───────────────────────────────────────────────────────────────────────┐
@@ -124,11 +123,11 @@ apps/web  ──(tRPC over HTTP, typed via @distribution-copilot/trpc)──► 
   └───────────────────────────────────────────────────────────────────────┘
 ```
 
-- The **web app never talks to the database directly.** It calls the API through the
-  typed tRPC client. `AppRouter` is imported **as a type only** — zero runtime coupling.
-- The **API is the only writer of business logic and the host of the tRPC router.** It
+- The **web app never talks to the database directly.** It calls the REST API over
+  HTTP/JSON and validates responses with the shared Zod schemas — zero runtime coupling.
+- The **API is the only writer of business logic and the owner of the REST endpoints.** It
   owns auth, validation, services, and repositories.
-- The **worker** shares `database` and `shared` but **not** `trpc`. It is triggered by
+- The **worker** shares `database` and `shared`. It is triggered by
   enqueued jobs, not HTTP. Long or external-I/O-bound work belongs here, never in a
   request handler.
 - **Heavy/async work is enqueued, not awaited in-request.** Scraping, embedding, and
@@ -147,29 +146,28 @@ and [`docs/architecture/ai-architecture.md`](docs/architecture/ai-architecture.m
 Boundaries are enforced by what each package is _allowed to import_. Violating these is
 the single fastest way to make the codebase unmaintainable.
 
-| Package / app       | May depend on                                | Must NOT depend on                         |
-| ------------------- | -------------------------------------------- | ------------------------------------------ |
-| `apps/web`          | `trpc` (type), `shared`, `ui`, `config`      | `database`, `api` internals, `worker`      |
-| `apps/api`          | `trpc`, `database`, `shared`, `config`, `ai` | `web`, `worker`, `ui`                      |
-| `apps/worker`       | `database`, `shared`, `config`, `ai`         | `web`, `api` internals, `trpc`, `ui`       |
-| `packages/trpc`     | `shared`                                     | `database`, any app, framework runtimes    |
-| `packages/database` | `@prisma/client`                             | any app, `trpc`, `ai`, `ui`                |
-| `packages/shared`   | `zod` only                                   | every framework, every other workspace pkg |
-| `packages/ai`       | `shared`, `config`                           | `database`, `trpc`, any app, `ui`          |
-| `packages/ui`       | `react`, `cva`, `clsx`, `tailwind-merge`     | every other workspace pkg, business logic  |
-| `packages/config`   | `zod`                                        | every other workspace pkg                  |
+| Package / app       | May depend on                            | Must NOT depend on                         |
+| ------------------- | ---------------------------------------- | ------------------------------------------ |
+| `apps/web`          | `shared`, `ui`, `config`                 | `database`, `api` internals, `worker`      |
+| `apps/api`          | `database`, `shared`, `config`, `ai`     | `web`, `worker`, `ui`                      |
+| `apps/worker`       | `database`, `shared`, `config`, `ai`     | `web`, `api` internals, `ui`               |
+| `packages/database` | `@prisma/client`                         | any app, `ai`, `ui`                        |
+| `packages/shared`   | `zod` only                               | every framework, every other workspace pkg |
+| `packages/ai`       | `shared`, `config`                       | `database`, any app, `ui`                  |
+| `packages/ui`       | `react`, `cva`, `clsx`, `tailwind-merge` | every other workspace pkg, business logic  |
+| `packages/config`   | `zod`                                    | every other workspace pkg                  |
 
 **Hard rules:**
 
 - **Dependencies flow one way: apps → packages.** Packages never import from apps.
-- **No app imports another app.** Cross-app contracts go through `trpc` (web↔api) or
-  the queue + database (api↔worker).
+- **No app imports another app.** Cross-app contracts go through the REST API + shared
+  schemas (web↔api) or the queue + database (api↔worker).
 - **`shared` and `config` are leaves.** They must stay free of framework and
   cross-package dependencies so anything can import them.
-- **The web app must never import `database` or Prisma types.** It only knows the tRPC
-  contract.
+- **The web app must never import `database` or Prisma types.** It only knows the REST
+  endpoints and the shared schemas.
 - **Prisma types stay behind the repository layer.** Do not leak `@prisma/client` types
-  across the tRPC boundary; map to Zod-derived domain types from `shared`.
+  across the API boundary; map to Zod-derived domain types from `shared`.
 
 ---
 
@@ -222,29 +220,28 @@ present in the codebase.
 Consistency here is what lets you _guess_ where things are. These are derived from the
 existing scaffold — follow them exactly.
 
-| Thing                         | Convention                                              | Example                                        |
-| ----------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
-| Files & folders               | `kebab-case`                                            | `use-app-store.ts`, `query-client.ts`          |
-| Workspace packages            | `@distribution-copilot/<kebab>`                         | `@distribution-copilot/shared`                 |
-| React components (file)       | `kebab-case.tsx`                                        | `opportunity-table.tsx`                        |
-| React components (identifier) | `PascalCase`                                            | `export function OpportunityTable()`           |
-| React hooks                   | `use-*.ts` / `useThing()`                               | `use-opportunities.ts` → `useOpportunities`    |
-| Zustand stores                | `use-*-store.ts` / `useThingStore`                      | `use-app-store.ts` → `useAppStore`             |
-| NestJS modules                | `*.module.ts`                                           | `health.module.ts`                             |
-| NestJS controllers            | `*.controller.ts`                                       | `health.controller.ts`                         |
-| NestJS services               | `*.service.ts`                                          | `opportunity.service.ts`                       |
-| Repositories                  | `*.repository.ts`                                       | `opportunity.repository.ts`                    |
-| DTOs / input schemas          | `*.dto.ts` or `*.input.ts`                              | `create-product.input.ts`                      |
-| tRPC routers                  | `*.router.ts` / `<feature>Router`                       | `opportunity.router.ts` → `opportunityRouter`  |
-| Zod schemas (identifier)      | `<name>Schema`                                          | `opportunitySchema`, `opportunitySourceSchema` |
-| Types & interfaces            | `PascalCase`, **no `I` prefix**                         | `Opportunity`, `Paginated`, `AppState`         |
-| Prisma models                 | `PascalCase` singular                                   | `model Opportunity { … }`                      |
-| Prisma table mapping          | `snake_case` plural via `@@map`                         | `@@map("opportunities")`                       |
-| DB columns                    | `camelCase` field → `@map` if needed                    | `createdAt`, mapped where useful               |
-| Constants                     | `SCREAMING_SNAKE_CASE`                                  | `APP_NAME`, `DEFAULT_PAGE_SIZE`                |
-| Enums (Zod)                   | `<name>Schema = z.enum([...])`                          | `opportunitySourceSchema`                      |
-| BullMQ queues                 | `kebab-case` string + typed const                       | `"discovery"`, `DISCOVERY_QUEUE`               |
-| Env vars                      | `SCREAMING_SNAKE_CASE`; web public vars `NEXT_PUBLIC_*` | `DATABASE_URL`, `NEXT_PUBLIC_TRPC_URL`         |
+| Thing                         | Convention                                              | Example                                               |
+| ----------------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
+| Files & folders               | `kebab-case`                                            | `use-app-store.ts`, `query-client.ts`                 |
+| Workspace packages            | `@distribution-copilot/<kebab>`                         | `@distribution-copilot/shared`                        |
+| React components (file)       | `kebab-case.tsx`                                        | `opportunity-table.tsx`                               |
+| React components (identifier) | `PascalCase`                                            | `export function OpportunityTable()`                  |
+| React hooks                   | `use-*.ts` / `useThing()`                               | `use-opportunities.ts` → `useOpportunities`           |
+| Zustand stores                | `use-*-store.ts` / `useThingStore`                      | `use-app-store.ts` → `useAppStore`                    |
+| NestJS modules                | `*.module.ts`                                           | `health.module.ts`                                    |
+| NestJS controllers            | `*.controller.ts` / `<Feature>Controller`               | `opportunity.controller.ts` → `OpportunityController` |
+| NestJS services               | `*.service.ts`                                          | `opportunity.service.ts`                              |
+| Repositories                  | `*.repository.ts`                                       | `opportunity.repository.ts`                           |
+| DTOs / input schemas          | `*.dto.ts` or `*.input.ts`                              | `create-product.input.ts`                             |
+| Zod schemas (identifier)      | `<name>Schema`                                          | `opportunitySchema`, `opportunitySourceSchema`        |
+| Types & interfaces            | `PascalCase`, **no `I` prefix**                         | `Opportunity`, `Paginated`, `AppState`                |
+| Prisma models                 | `PascalCase` singular                                   | `model Opportunity { … }`                             |
+| Prisma table mapping          | `snake_case` plural via `@@map`                         | `@@map("opportunities")`                              |
+| DB columns                    | `camelCase` field → `@map` if needed                    | `createdAt`, mapped where useful                      |
+| Constants                     | `SCREAMING_SNAKE_CASE`                                  | `APP_NAME`, `DEFAULT_PAGE_SIZE`                       |
+| Enums (Zod)                   | `<name>Schema = z.enum([...])`                          | `opportunitySourceSchema`                             |
+| BullMQ queues                 | `kebab-case` string + typed const                       | `"discovery"`, `DISCOVERY_QUEUE`                      |
+| Env vars                      | `SCREAMING_SNAKE_CASE`; web public vars `NEXT_PUBLIC_*` | `DATABASE_URL`, `NEXT_PUBLIC_API_URL`                 |
 
 Booleans read as predicates (`isOpen`, `hasScore`, `canReply`). Functions are verbs
 (`scoreOpportunity`, `generateReply`). Avoid abbreviations except universally understood
@@ -264,7 +261,7 @@ apps/api/src/
 ├── modules/
 │   └── opportunity/
 │       ├── opportunity.module.ts        # wires the feature together
-│       ├── opportunity.router.ts        # tRPC procedures (the public surface)
+│       ├── opportunity.controller.ts    # REST endpoints (the public surface)
 │       ├── opportunity.service.ts       # business logic / orchestration
 │       ├── opportunity.repository.ts    # all Prisma access for this feature
 │       └── dto/
@@ -281,7 +278,7 @@ apps/web/src/
 │   └── (dashboard)/opportunities/page.tsx
 ├── components/                 # shared app components (feature ones co-locate w/ route)
 ├── features/<feature>/         # hooks, components, view-models for one feature
-├── lib/                        # client setup: trpc, query-client, monitoring, utils
+├── lib/                        # client setup: api-client, query-client, monitoring, utils
 └── store/                      # Zustand stores (ephemeral UI state only)
 ```
 
@@ -301,7 +298,7 @@ apps/worker/src/
 **Where new code goes — decision rules:**
 
 - Reusable across services & framework-free → `packages/shared`.
-- A new API endpoint → a tRPC procedure in the owning feature's `*.router.ts`.
+- A new API endpoint → a route in the owning feature's `*.controller.ts`.
 - DB access → a repository method (never query Prisma outside a repository).
 - A prompt or AI provider call → `packages/ai`.
 - A long/external/async job → an `apps/worker` queue processor.
@@ -318,8 +315,9 @@ See [`docs/architecture/`](docs/architecture/) for the per-area deep dives.
 Security is a first-class requirement; this product handles user accounts, third-party
 tokens, and scraped content.
 
-- **Validate all input at the boundary.** Every tRPC procedure validates its input with
-  a Zod schema. Never trust client data. Never trust scraped content (treat it as
+- **Validate all input at the boundary.** Every controller route validates its input with
+  a Zod schema (via a validation pipe). Never trust client data. Never trust scraped
+  content (treat it as
   hostile — sanitize before rendering, never `eval`/interpolate it into prompts without
   guardrails).
 - **Authentication via Better Auth only.** Do not hand-roll sessions, tokens, or
@@ -342,7 +340,7 @@ tokens, and scraped content.
   automatically (see §1). Surface risk assessments prominently.
 
 See [`docs/architecture/api-design.md`](docs/architecture/api-design.md) for the
-auth/authorization patterns at the tRPC layer.
+auth/authorization patterns at the API layer.
 
 ---
 
@@ -386,10 +384,11 @@ any deliberate "good enough for now" decision so the future scaling path is obvi
 
 - **Fail loud at boundaries, degrade gracefully in the UI.** Validate inputs and throw
   early in services; present recoverable, friendly states to the user.
-- **Use typed tRPC errors.** Throw `TRPCError` with a correct code (`UNAUTHORIZED`,
-  `FORBIDDEN`, `NOT_FOUND`, `BAD_REQUEST`, `CONFLICT`, `TOO_MANY_REQUESTS`,
-  `INTERNAL_SERVER_ERROR`). The client maps these to UX; never leak stack traces or
-  internal messages to users.
+- **Use typed HTTP errors.** Throw NestJS `HttpException` subclasses with the right
+  status (`UnauthorizedException` 401, `ForbiddenException` 403, `NotFoundException` 404,
+  `BadRequestException` 400, `ConflictException` 409, 429 for rate limits,
+  `InternalServerErrorException` 500). A global exception filter shapes the JSON response;
+  the client maps the status to UX. Never leak stack traces or internal messages to users.
 - **Never swallow errors.** No empty `catch {}`. Either handle meaningfully, attach
   context and rethrow, or let it propagate to the global handler. Don't convert errors
   into silent `null`s that hide failures downstream.
@@ -421,8 +420,8 @@ breaking.
 - **The testing pyramid:**
   - _Unit_ — pure logic: scoring, risk heuristics, prompt builders, `shared` utils,
     Zod schemas. Fast, no I/O. The bulk of tests.
-  - _Integration_ — services + repositories against a real (test) Postgres; tRPC
-    procedures end-to-end via a caller; worker processors against a test Redis.
+  - _Integration_ — services + repositories against a real (test) Postgres; controller
+    routes end-to-end via Nest's testing module; worker processors against a test Redis.
   - _E2E_ — a thin layer over the few critical user flows (discover → review → draft).
 - **Pure functions are the unit-test sweet spot.** Push logic into pure functions
   (especially in `shared` and `ai`) precisely because they are trivial to test.
@@ -455,8 +454,9 @@ AI-assisted change _additive and safe_ rather than entropy-increasing.
    component, **search for an existing one.** If something close exists, extend it. Two
    implementations of the same concept is a bug.
 6. **One source of truth.** Domain types come from Zod schemas in `shared`. DB shape
-   comes from `prisma/schema.prisma`. The API contract comes from `trpc`. Don't
-   re-declare these elsewhere.
+   comes from `prisma/schema.prisma`. The API contract is the REST endpoints, with
+   request/response shapes defined by the `shared` schemas. Don't re-declare these
+   elsewhere.
 7. **Update docs alongside code.** If you change architecture, boundaries, the domain
    model, or a convention, update this file and the relevant `docs/architecture/*` and
    package `CLAUDE.md` **in the same change.** Stale docs are bugs.
@@ -495,7 +495,7 @@ These are **decided**. Do not introduce alternatives without a new ADR in
 | Frontend        | Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui                      |
 | Frontend state  | TanStack Query (server state), Zustand (UI state), TanStack Table              |
 | Backend         | NestJS                                                                         |
-| API contract    | tRPC + Zod                                                                     |
+| API contract    | REST (NestJS controllers) + Zod                                                |
 | Database        | PostgreSQL + pgvector, Prisma ORM                                              |
 | Background jobs | BullMQ + Redis                                                                 |
 | AI              | Provider-abstracted in `packages/ai`                                           |
@@ -560,7 +560,7 @@ Local services: web → `http://localhost:3000`, api → `http://localhost:4000`
 | Architecture decisions (ADRs)   | [`docs/architecture/decisions.md`](docs/architecture/decisions.md)                         |
 | Domain model & vocabulary       | [`docs/architecture/domain-model.md`](docs/architecture/domain-model.md)                   |
 | Database & data layer           | [`docs/architecture/database.md`](docs/architecture/database.md)                           |
-| API design (tRPC) & auth        | [`docs/architecture/api-design.md`](docs/architecture/api-design.md)                       |
+| API design (REST) & auth        | [`docs/architecture/api-design.md`](docs/architecture/api-design.md)                       |
 | Backend (NestJS) architecture   | [`docs/architecture/backend-architecture.md`](docs/architecture/backend-architecture.md)   |
 | Frontend (Next.js) architecture | [`docs/architecture/frontend-architecture.md`](docs/architecture/frontend-architecture.md) |
 | AI architecture & providers     | [`docs/architecture/ai-architecture.md`](docs/architecture/ai-architecture.md)             |
@@ -569,8 +569,7 @@ Local services: web → `http://localhost:3000`, api → `http://localhost:4000`
 
 **Per-package guides** (read before working in a package): `apps/web/CLAUDE.md`,
 `apps/api/CLAUDE.md`, `apps/worker/CLAUDE.md`, `packages/ai/CLAUDE.md`,
-`packages/database/CLAUDE.md`, `packages/ui/CLAUDE.md`, `packages/shared/CLAUDE.md`,
-`packages/trpc/CLAUDE.md`.
+`packages/database/CLAUDE.md`, `packages/ui/CLAUDE.md`, `packages/shared/CLAUDE.md`.
 
 ---
 

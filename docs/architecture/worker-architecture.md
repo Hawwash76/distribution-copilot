@@ -20,9 +20,9 @@ Related: [`backend-architecture.md`](backend-architecture.md) (who enqueues),
 **The worker owns:** long-running and recurring background work — pulling conversations
 from source connectors, generating embeddings, scoring, risk assessment, and any batch AI.
 
-**It does not:** expose HTTP, host the tRPC router, or render UI. It is triggered by
+**It does not:** expose HTTP or render UI. It is triggered by
 **enqueued jobs**, not requests. It depends on `database`, `shared`, `config`, and `ai` —
-**not** `trpc`, `web`, or `ui`.
+**not** `web` or `ui`.
 
 **Communication model:**
 
@@ -30,7 +30,7 @@ from source connectors, generating embeddings, scoring, risk assessment, and any
 apps/api  ──enqueue job (BullMQ)──►  Redis  ──►  apps/worker (processes job)
                                                       │ writes results via repository
                                                       ▼
-                                              PostgreSQL  ◄── apps/api reads results (tRPC query)
+                                              PostgreSQL  ◄── apps/api reads results (REST query)
 ```
 
 The API and worker communicate **through the queue and the database**, never by importing
@@ -177,6 +177,6 @@ concurrency, good logging. See [`roadmap.md`](roadmap.md).
 - Running discovery/scoring/embedding inside an HTTP request instead of a job.
 - Large payloads in jobs (pass IDs; re-read from the DB).
 - Non-idempotent jobs that duplicate data on retry.
-- Importing `trpc`/`web`/`ui` into the worker, or importing the API.
+- Importing `web`/`ui` into the worker, or importing the API.
 - Swallowing job errors or letting one job crash the process.
 - Ignoring platform rate limits or adding any auto-engagement capability.
