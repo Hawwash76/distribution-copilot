@@ -2,7 +2,7 @@
 
 `apps/web` is the founder-facing dashboard: **Next.js App Router** (ADR-013), React 19,
 TypeScript, Tailwind + shadcn/ui (ADR-011), TanStack Query for server state (ADR-009),
-Zustand for UI state (ADR-010), and the typed tRPC client (ADR-006).
+Zustand for UI state (ADR-010), and a typed REST client (ADR-006).
 
 Related: [`api-design.md`](api-design.md) (the contract it consumes),
 [`packages/ui/CLAUDE.md`](../../packages/ui/CLAUDE.md), and
@@ -16,8 +16,7 @@ Related: [`api-design.md`](api-design.md) (the contract it consumes),
 (discover → review → draft → the human posts), and client-side state.
 
 **It must not:** touch the database or Prisma, contain business logic that belongs in the
-API, hold secrets, or import another app. It depends on `trpc` (**type only**), `shared`,
-`ui`, and `config`.
+API, hold secrets, or import another app. It depends on `shared`, `ui`, and `config`.
 
 **The publishing line:** the UI presents drafts and signals; the human edits and posts
 **off-platform, manually**. There is no "post" button that publishes to Reddit/X — the UI
@@ -43,11 +42,11 @@ apps/web/src/
 ├── features/                   # feature-scoped client code (hooks, components, view models)
 │   └── opportunities/
 │       ├── components/         # opportunity-table.tsx, score-badge.tsx, …
-│       └── hooks/              # use-opportunities.ts (wraps tRPC + TanStack Query)
+│       └── hooks/              # use-opportunities.ts (wraps api-client + TanStack Query)
 ├── components/                 # cross-feature app components (not generic enough for ui/)
-│   └── providers.tsx           # "use client": TanStack Query + tRPC client
+│   └── providers.tsx           # "use client": TanStack Query provider
 ├── lib/
-│   ├── trpc.ts                 # createTRPCReact<AppRouter>() — type-only AppRouter import
+│   ├── api-client.ts           # apiFetch() — typed REST calls to the API
 │   ├── query-client.ts         # server/browser QueryClient factory
 │   ├── monitoring.ts           # Sentry + PostHog (env-gated, opt-in)
 │   └── utils.ts                # cn() etc.
@@ -68,8 +67,8 @@ presentational primitives belong in `packages/ui` (not here). The `@/*` path ali
   they need interactivity, browser APIs, hooks, or client state.
 - **Client Components are opt-in** with `"use client"`, kept as **leaves** of the tree.
   Push the `"use client"` boundary as far down as possible so most of the page stays
-  server-rendered. `providers.tsx` is a client boundary because it instantiates the tRPC
-  - Query clients.
+  server-rendered. `providers.tsx` is a client boundary because it instantiates the
+  TanStack Query client.
 - **Never import server-only code or secrets into client components.** Anything in a
   client component (and anything `NEXT_PUBLIC_*`) ships to the browser.
 - Use server components for data-dependent shells and client components for the
@@ -77,22 +76,22 @@ presentational primitives belong in `packages/ui` (not here). The `@/*` path ali
 
 ---
 
-## 4. Data fetching — TanStack Query + tRPC
+## 4. Data fetching — TanStack Query + REST
 
-**Server state is owned entirely by TanStack Query**, accessed through the typed tRPC
-client. Never fetch into `useState`/`useEffect` by hand, and never put server data in
-Zustand.
+**Server state is owned entirely by TanStack Query**, fed by the REST API. Never fetch into
+`useState`/`useEffect` by hand, and never put server data in Zustand.
 
-- `lib/trpc.ts` exports `trpc = createTRPCReact<AppRouter>()`. `AppRouter` is a **type
-  import** from `@distribution-copilot/trpc` — full inference, zero runtime coupling.
-- `providers.tsx` wires the tRPC client (`httpBatchLink` to `NEXT_PUBLIC_TRPC_URL`,
-  default `http://localhost:4000/trpc`) and the `QueryClient`.
+- `lib/api-client.ts` exports `apiFetch(path, init?)`, which calls the API at
+  `NEXT_PUBLIC_API_URL` (default `http://localhost:4000`) and returns `unknown`. Callers
+  parse the body with the relevant `@distribution-copilot/shared` Zod schema — one
+  definition shared with the server, zero runtime coupling to the backend.
+- `providers.tsx` wires the `QueryClient` (TanStack Query) for the client tree.
 - `lib/query-client.ts` returns a **request-scoped** client on the server and a
   **singleton** in the browser (the standard App Router pattern); default `staleTime` is
   60s.
-- Components call typed hooks: `trpc.opportunity.list.useQuery(input)`,
-  `trpc.reply.generateDraft.useMutation()`. Wrap feature data access in a
-  `features/<feature>/hooks/use-*.ts` hook rather than calling tRPC inline everywhere.
+- Components call typed hooks built on `useQuery`/`useMutation` + `apiFetch`. Wrap feature
+  data access in a `features/<feature>/hooks/use-*.ts` hook rather than calling `apiFetch`
+  inline everywhere.
 - Use Query's tools for the loop UX: `staleTime`/`refetch` for freshness, mutations with
   `invalidateQueries` (or optimistic updates) to keep the dashboard live, and the shared
   `Paginated<T>` shape for lists.
@@ -100,7 +99,14 @@ Zustand.
 ```ts
 // features/opportunities/hooks/use-opportunities.ts (illustrative)
 export function useOpportunities(input: ListOpportunitiesInput) {
-  return trpc.opportunity.list.useQuery(input, { staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["opportunities", input],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: String(input.page) });
+      return paginatedOpportunitySchema.parse(await apiFetch(`/opportunities?${params}`));
+    },
+    staleTime: 60_000,
+  });
 }
 ```
 
@@ -141,9 +147,9 @@ URL · ephemeral UI → Zustand · component-local → `useState`.
 
 - Validate form input with the **same Zod schemas** from `@distribution-copilot/shared`
   that the API uses — one definition, client and server agree.
-- Show friendly, recoverable errors; map tRPC error codes (see
-  [`api-design.md`](api-design.md) §6) to UX (e.g. `UNAUTHORIZED` → redirect to sign-in,
-  `TOO_MANY_REQUESTS` → backoff message).
+- Show friendly, recoverable errors; map HTTP error statuses (see
+  [`api-design.md`](api-design.md) §6) to UX (e.g. `401` → redirect to sign-in, `429` →
+  backoff message). `apiFetch` throws an `ApiError` carrying the status.
 - The draft editor is the heart of the review step: it must make editing effortless and
   never nudge toward one-click publishing.
 

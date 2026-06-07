@@ -19,7 +19,7 @@ PostgreSQL (+ pgvector) for the API and worker.
 
 **Depends on:** `@prisma/client`.
 
-**Must NOT:** import any app, `trpc`, `ai`, or `ui`. It exposes the client and types —
+**Must NOT:** import any app, `ai`, or `ui`. It exposes the client and types —
 nothing else.
 
 **The schema lives once at the repo root** (`prisma/schema.prisma`); this package points at
@@ -54,7 +54,7 @@ This package gives raw Prisma access. The architecture requires that access be c
 **repositories** in the API/worker, which **map Prisma rows to `shared` domain types**.
 Consequences for anyone using this package:
 
-- **Prisma types must not cross the tRPC boundary** — map to domain types in the repository.
+- **Prisma types must not cross the API boundary** — map to domain types in the repository.
 - All vector/raw SQL (parameterized `$queryRaw` only) lives in repositories, so a future
   move off pgvector is an implementation change.
 - User-scoped queries always filter by `userId` in the repository.
@@ -62,7 +62,7 @@ Consequences for anyone using this package:
 ## Anti-patterns
 
 - Creating a second Prisma schema (there is exactly one, at `/prisma`).
-- Importing this package (or Prisma types) into `web`/`ui`/`trpc`/`ai`.
+- Importing this package (or Prisma types) into `web`/`ui`/`ai`.
 - Writing queries or business logic in this package.
 - Instantiating `new PrismaClient()` elsewhere (use the singleton).
 - Leaking `@prisma/client` types across the API contract.

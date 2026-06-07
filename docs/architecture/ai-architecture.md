@@ -26,7 +26,7 @@ SDK directly, every change ripples everywhere. Instead:
   and handles retries, timeouts, rate limits, and cost controls.
 - **Swapping or adding a provider is a change inside `ai`** — callers don't move.
 
-`ai` depends only on `shared` and `config`. It must **not** import `database`, `trpc`, or
+`ai` depends only on `shared` and `config`. It must **not** import `database` or
 any app — it takes inputs and returns typed outputs; persistence is the caller's job.
 
 ---
@@ -159,7 +159,7 @@ AI is generative leverage, never an autonomous actor. This is non-negotiable (se
 ## 8. Anti-patterns (do not do)
 
 - Calling a vendor SDK from `api`, `worker`, or `web` directly (all AI goes through `ai`).
-- Importing `database`/`trpc`/an app into `packages/ai`.
+- Importing `database`/an app into `packages/ai`.
 - Embedding prompt text inside business logic instead of the `prompts/` templates.
 - Trusting raw model output without Zod validation.
 - Interpolating untrusted scraped text into prompts without injection guards.

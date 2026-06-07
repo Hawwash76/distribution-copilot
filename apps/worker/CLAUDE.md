@@ -20,7 +20,7 @@ rate-limited, high-volume work: discovery (scraping), embedding, scoring, risk a
 
 **Depends on:** `database`, `shared`, `config`, `ai`.
 
-**Must NOT:** expose HTTP; host the tRPC router; render UI; import `trpc`/`web`/`ui` or the
+**Must NOT:** expose HTTP or render UI; import `web`/`ui` or the
 API. It is triggered by **enqueued jobs**, never requests.
 
 **Communication:** the API and worker talk **through the queue and the database** —
@@ -75,7 +75,7 @@ Runs via `tsx` in dev, compiled `node dist/main.js` in prod.
   avoid; here, never accept such work synchronously).
 - Large job payloads instead of IDs.
 - Non-idempotent jobs that duplicate data on retry.
-- Importing `trpc`/`web`/`ui` or the API; calling AI vendor SDKs directly.
+- Importing `web`/`ui` or the API; calling AI vendor SDKs directly.
 - Swallowing job errors; letting one job crash the worker.
 - **Any auto-engagement capability** — the worker discovers/scores/assesses/pre-drafts; it
   never posts, votes, follows, or engages. None may be added (product §6).

@@ -22,7 +22,7 @@ the `cn` helper; generated components are added under `src/components`.
 `tailwind-merge`.
 
 **Must NOT:** import any other workspace package, fetch data, hold app state, contain
-business/domain logic, or know about tRPC/Prisma/the domain model.
+business/domain logic, or know about Prisma/the domain model.
 
 This package is **presentational and generic.** Anything that knows about opportunities,
 scores, or replies is an **app-specific** component and belongs in `apps/web`
@@ -56,7 +56,7 @@ exported identifiers are `PascalCase`.
 ## Anti-patterns
 
 - Business/domain logic or data fetching in a component (keep it presentational).
-- Importing `shared`/`trpc`/`database` or any app.
+- Importing `shared`/`database` or any app.
 - Domain-aware components here (e.g. `OpportunityTable`) — those live in `apps/web`.
 - Raw colors instead of theme tokens; hand-sorting Tailwind classes.
 - A "kitchen-sink" mega-component — keep primitives small and composable.

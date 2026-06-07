@@ -15,7 +15,6 @@
     "@distribution-copilot/config": "workspace:*",
     "@distribution-copilot/database": "workspace:*",
     "@distribution-copilot/shared": "workspace:*",
-    "@distribution-copilot/trpc": "workspace:*",
     "@nestjs/common": "^11.0.6",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.6",

@@ -13,19 +13,19 @@ reply generation, and risk-analysis systems will be built on top of.
 
 ## Stack
 
-| Area            | Technology                                                        |
-| --------------- | ----------------------------------------------------------------- |
+| Area            | Technology                                                            |
+| --------------- | --------------------------------------------------------------------- |
 | Monorepo        | [Turborepo](https://turbo.build) + [pnpm workspaces](https://pnpm.io) |
-| Frontend        | Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui         |
-| Frontend state  | TanStack Query, Zustand, TanStack Table                           |
-| Backend         | NestJS                                                            |
-| API bridge      | tRPC (end-to-end type safety)                                     |
-| Database        | PostgreSQL + pgvector, Prisma                                     |
-| Background jobs | BullMQ + Redis                                                    |
-| Auth            | Better Auth                                                       |
-| Validation      | Zod (shared schemas)                                              |
-| Monitoring      | Sentry, PostHog                                                   |
-| Tooling         | ESLint (strict), Prettier, TypeScript (strict), Husky, lint-staged |
+| Frontend        | Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui             |
+| Frontend state  | TanStack Query, Zustand, TanStack Table                               |
+| Backend         | NestJS                                                                |
+| API contract    | REST (NestJS controllers) + Zod                                       |
+| Database        | PostgreSQL + pgvector, Prisma                                         |
+| Background jobs | BullMQ + Redis                                                        |
+| Auth            | Better Auth                                                           |
+| Validation      | Zod (shared schemas)                                                  |
+| Monitoring      | Sentry, PostHog                                                       |
+| Tooling         | ESLint (strict), Prettier, TypeScript (strict), Husky, lint-staged    |
 
 ## Monorepo structure
 
@@ -41,8 +41,7 @@ distribution-copilot/
 │   ├── database/   Prisma client wrapper (schema lives at /prisma)
 │   ├── shared/     Shared types, Zod schemas, and utilities
 │   ├── ai/         AI prompt folder structure (no logic)
-│   ├── config/     Shared runtime config (app constants, env schema)
-│   └── trpc/       tRPC router/context scaffold (appRouter placeholder)
+│   └── config/     Shared runtime config (app constants, env schema)
 │
 ├── tooling/
 │   ├── eslint/     Shared strict ESLint flat configs (base/node/nest/next)
@@ -61,9 +60,9 @@ distribution-copilot/
 
 They serve different concerns:
 
-- **`tooling/`** holds *build-time* configuration packages — ESLint, TypeScript,
+- **`tooling/`** holds _build-time_ configuration packages — ESLint, TypeScript,
   and Prettier presets shared across every workspace.
-- **`packages/config/`** holds *runtime* shared configuration — application
+- **`packages/config/`** holds _runtime_ shared configuration — application
   constants and the environment-variable schema.
 
 ## Package naming & dependencies
@@ -140,8 +139,8 @@ pnpm db:studio     # open Prisma Studio
   `noUnusedLocals`, …).
 - **Single source of truth for types** — domain types are inferred from Zod
   schemas in `@distribution-copilot/shared`.
-- **End-to-end type safety** — the frontend imports `AppRouter` as a *type* from
-  `@distribution-copilot/trpc`; the NestJS API is the intended router host.
+- **Typed REST contract** — request/response shapes are shared Zod schemas in
+  `@distribution-copilot/shared`; the NestJS API exposes them and the web parses with them.
 - **Separation of concerns** — server data via TanStack Query, ephemeral UI
   state via Zustand.
 
@@ -150,4 +149,4 @@ pnpm db:studio     # open Prisma Studio
 The architecture is prepared for — but does not yet contain — AI agents,
 opportunity scoring, community intelligence, reply generation, risk analysis,
 and the scraping/discovery pipelines. These land in `packages/ai`,
-`packages/trpc` routers, `apps/worker` queues, and new `apps/api` modules.
+`apps/api` modules (controllers/services/repositories), and `apps/worker` queues.

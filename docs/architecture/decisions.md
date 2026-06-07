@@ -19,7 +19,7 @@ work builds on the decisions instead of relitigating them.
 | 003 | PostgreSQL as the primary database        | Accepted |
 | 004 | Prisma as the ORM                         | Accepted |
 | 005 | pgvector for embeddings / semantic search | Accepted |
-| 006 | tRPC for the API contract                 | Accepted |
+| 006 | REST API for the API contract             | Accepted |
 | 007 | Better Auth for authentication            | Accepted |
 | 008 | BullMQ + Redis for background jobs        | Accepted |
 | 009 | TanStack Query for server state           | Accepted |
@@ -49,9 +49,9 @@ content-addressable store keeps installs fast and disk-light.
 
 **Consequences.**
 
-- _Positive:_ end-to-end type sharing (the frontend imports the API's `AppRouter` type
-  directly); one place to enforce lint/tsconfig/prettier; cached, incremental builds;
-  clear, lint-enforceable boundaries between packages.
+- _Positive:_ end-to-end type sharing (web and api import the same Zod schemas and domain
+  types from `shared`); one place to enforce lint/tsconfig/prettier; cached, incremental
+  builds; clear, lint-enforceable boundaries between packages.
 - _Negative:_ monorepo tooling has a learning curve; internal packages compile to
   `dist/` so a dependency must be built before a consumer can type-check against it
   (mitigated by `pnpm dev` building packages first).
@@ -70,8 +70,8 @@ support, dependency injection for testability, a clear module system, and lifecy
 hooks for graceful shutdown (important when workers and queues are involved).
 
 **Decision.** Use **NestJS**. Organize by **feature module** under `src/modules/<feature>`,
-each with its controller/router, service, and repository. NestJS hosts the shared tRPC
-router (mounted as middleware) and owns all business logic and auth.
+each with its controller, service, and repository. NestJS exposes the REST API and owns all
+business logic and auth.
 
 **Consequences.**
 
@@ -81,7 +81,7 @@ router (mounted as middleware) and owns all business logic and auth.
 - _Negative:_ heavier than a minimal Express/Fastify app; decorators/DI add a learning
   curve. Acceptable given the expected growth.
 - _Constraint:_ business logic lives in services, DB access in repositories — controllers
-  and tRPC procedures stay thin. See [`backend-architecture.md`](backend-architecture.md).
+  stay thin. See [`backend-architecture.md`](backend-architecture.md).
 
 ---
 
@@ -131,7 +131,7 @@ extension.
   one place to evolve the data model; pleasant DX.
 - _Negative:_ generated types are Prisma-shaped; some advanced vector queries need raw
   SQL (`$queryRaw`). We accept selective raw SQL behind repositories for vector search.
-- _Constraint:_ **Prisma types never cross the tRPC boundary** — repositories map rows
+- _Constraint:_ **Prisma types never cross the API boundary** — repositories map rows
   to Zod-derived domain types from `shared`. Run `pnpm db:generate` before building.
 
 ---
@@ -160,30 +160,33 @@ storage and similarity search. The extension is enabled in the schema today
 
 ---
 
-## ADR-006 — tRPC for the API contract
+## ADR-006 — REST API for the API contract
 
 **Status:** Accepted
 
-**Context.** Frontend and backend are both TypeScript in one monorepo. We want
-**end-to-end type safety** with no codegen step and no schema duplication, and tight
-integration with TanStack Query on the client.
+**Context.** Frontend and backend are both TypeScript in one monorepo. We want a simple,
+well-understood HTTP contract between the web app and the API, with strong typing and no
+schema duplication, and tight integration with TanStack Query on the client.
 
-**Decision.** Use **tRPC** as the API contract, defined in `@distribution-copilot/trpc`
-and hosted by the NestJS API (mounted as Express middleware at `/trpc`). The web app
-imports `AppRouter` **as a type only** via `@trpc/react-query`, giving full type
-inference with zero runtime coupling. Procedure inputs/outputs are validated with Zod
-(ADR-012).
+**Decision.** Expose a **REST API** from the NestJS app: one controller per feature, routes
+grouped by resource. The request/response shapes are **Zod schemas in
+`@distribution-copilot/shared`** — the single source of truth, imported by the API (to
+validate inputs and shape outputs) and by the web app (to parse responses). The web calls
+the API over HTTP/JSON through a typed `apiFetch` client (`apps/web/src/lib/api-client.ts`)
+with zero runtime coupling to the backend. Inputs are validated with Zod (ADR-012).
 
 **Consequences.**
 
-- _Positive:_ change a procedure and the frontend's types update instantly; no OpenAPI
-  codegen; Zod gives runtime validation + inferred types in one definition; great
-  TanStack Query integration.
-- _Negative:_ tRPC couples client and server to TypeScript (fine — both are TS) and is
-  not a public REST API. If we later need a public/3rd-party API, we add REST/GraphQL
-  alongside via a new ADR.
-- _Constraint:_ the router lives in `packages/trpc`; the API is its only host; the web
-  imports only the type. See [`api-design.md`](api-design.md).
+- _Positive:_ a conventional, debuggable HTTP surface (any client/curl can hit it); the
+  shared Zod schemas give one definition for validation + types on both sides; no codegen
+  step; clean TanStack Query integration via feature hooks.
+- _Negative:_ unlike an RPC-typed client, route/response types aren't inferred end-to-end
+  automatically — we keep them in sync by importing the same `shared` schemas and parsing
+  responses with them (a small, explicit discipline).
+- _Constraint:_ the contract shapes live in `packages/shared`; the API is the only host;
+  the web parses responses with the shared schemas and never imports `database`/Prisma. If
+  we later need a public/third-party API, we add an explicitly versioned surface via a new
+  ADR. See [`api-design.md`](api-design.md).
 
 ---
 
@@ -197,7 +200,7 @@ auth, which is a recurring source of security bugs.
 
 **Decision.** Use **Better Auth**, configured in the API (`apps/api/src/config/auth.ts`)
 with the Prisma adapter against our PostgreSQL database. Auth is owned by the backend;
-the tRPC context carries the authenticated session.
+an auth guard resolves the authenticated session and exposes it to controllers.
 
 **Consequences.**
 
@@ -233,8 +236,8 @@ for blocking commands.
 - _Negative:_ adds Redis as infrastructure and a separate deployable. Justified by the
   workload.
 - _Constraint:_ jobs must be **idempotent** (safe to retry), carry **minimal payloads**
-  (IDs, not blobs), and be observable. The worker does not depend on `trpc`; it shares
-  `database` and `shared`. See [`worker-architecture.md`](worker-architecture.md).
+  (IDs, not blobs), and be observable. The worker shares `database` and `shared`; it does
+  not expose HTTP. See [`worker-architecture.md`](worker-architecture.md).
 
 ---
 
@@ -246,15 +249,15 @@ for blocking commands.
 pagination, and loading/error state for data fetched from the API — without a hand-rolled
 fetching layer or stuffing server data into a global store.
 
-**Decision.** Use **TanStack Query** as the single owner of **server state**, integrated
-with tRPC via `@trpc/react-query`. A request-scoped `QueryClient` on the server and a
-singleton in the browser (the standard App Router pattern) are configured in
-`apps/web/src/lib/query-client.ts`.
+**Decision.** Use **TanStack Query** as the single owner of **server state**, fed by the
+REST API via the typed `apiFetch` client (`apps/web/src/lib/api-client.ts`). A
+request-scoped `QueryClient` on the server and a singleton in the browser (the standard App
+Router pattern) are configured in `apps/web/src/lib/query-client.ts`.
 
 **Consequences.**
 
-- _Positive:_ caching, dedup, background refresh, and pagination for free; tRPC
-  integration gives typed hooks; clear separation from UI state.
+- _Positive:_ caching, dedup, background refresh, and pagination for free; feature hooks
+  built on `apiFetch` + shared schemas stay typed; clear separation from UI state.
 - _Negative:_ two state tools to learn (with Zustand) — but they own disjoint concerns.
 - _Constraint:_ **server data lives in TanStack Query, never in Zustand.** See
   [`frontend-architecture.md`](frontend-architecture.md) and ADR-010.
@@ -315,9 +318,9 @@ static type, shared across web, api, and worker — eliminating drift between "t
 and "the validator."
 
 **Decision.** Use **Zod**. Domain schemas live in `@distribution-copilot/shared/schemas`;
-types are `z.infer`-ed from them. tRPC procedures validate inputs with these schemas. A
-single, version-pinned `zod` is re-exported from `shared` so all consumers share one
-instance.
+types are `z.infer`-ed from them. Controllers validate inputs with these schemas, and the
+web app parses API responses with them. A single, version-pinned `zod` is re-exported from
+`shared` so all consumers share one instance.
 
 **Consequences.**
 
@@ -339,8 +342,7 @@ React Server Components, and first-class React 19 support.
 
 **Decision.** Use **Next.js with the App Router** (`src/app/`), React 19, server
 components by default and client components where interactivity demands. Providers
-(TanStack Query + tRPC client) are wired in a client boundary; the `@/*` path alias maps
-to `src/*`.
+(TanStack Query) are wired in a client boundary; the `@/*` path alias maps to `src/*`.
 
 **Consequences.**
 
@@ -376,7 +378,7 @@ templates under `packages/ai/prompts/<capability>/`, separate from logic.
 - _Negative:_ an abstraction layer to maintain — kept thin and capability-shaped to earn
   its keep.
 - _Constraint:_ no direct vendor SDK calls outside `ai`; `ai` stays free of
-  `database`/`trpc`/app deps (depends only on `shared`/`config`). AI outputs are drafts
+  `database`/app deps (depends only on `shared`/`config`). AI outputs are drafts
   — never auto-published. See [`ai-architecture.md`](ai-architecture.md).
 
 ---

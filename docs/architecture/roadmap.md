@@ -14,7 +14,7 @@ entities each phase adds), and the per-area architecture docs.
 > **Keep the interfaces scalable; keep the implementations simple.**
 
 The architecture already puts the seams in the right places — repositories, the queue, the
-AI provider abstraction, the source-connector interface, the tRPC contract. Because those
+AI provider abstraction, the source-connector interface, the REST API contract. Because those
 seams exist, we can ship a deliberately simple MVP and scale each piece _later_ as an
 implementation change, not a rewrite.
 
@@ -29,11 +29,11 @@ path is clear.
 The monorepo scaffold exists and is the foundation everything builds on:
 
 - Turborepo + pnpm workspaces; strict ESLint/TS/Prettier; Husky + lint-staged.
-- `apps/web` (Next.js shell, providers, tRPC client, Zustand store, monitoring stubs).
-- `apps/api` (NestJS `AppModule`, `ConfigModule`, `/health`, Better Auth + tRPC
+- `apps/web` (Next.js shell, providers, `apiFetch` client, Zustand store, monitoring stubs).
+- `apps/api` (NestJS `AppModule`, `ConfigModule`, `/health`, Better Auth + REST
   placeholders).
 - `apps/worker` (BullMQ/Redis config scaffold, no queues).
-- `packages/`: `trpc` (empty router/context), `database` (Prisma client wrapper,
+- `packages/`: `database` (Prisma client wrapper,
   `User`/`Product` + pgvector enabled), `shared` (Zod schemas for user/product/opportunity,
   `Paginated`), `ai` (prompt folders only), `ui` (`cn` helper), `config` (constants + env
   schema).
@@ -51,10 +51,9 @@ Each phase is shippable and exercises the core loop a little more end-to-end.
 Make the app real for one user.
 
 - Wire **Better Auth** in the API (Prisma adapter, email/password); resolve the session in
-  the tRPC context; add `protectedProcedure`.
-- Mount the **tRPC middleware** at `/trpc` in the API; verify end-to-end typed calls from
-  the web app.
-- Add the **`product` feature module** (router + service + repository), scoped to `userId`;
+  NestJS guards on controller routes.
+- Add the first feature controller(s) and verify end-to-end REST calls from the web app.
+- Add the **`product` feature module** (controller + service + repository), scoped to `userId`;
   add product CRUD UI. Add `userId` to `Product`.
 - _Outcome:_ a founder can sign in and describe their product(s).
 
@@ -143,7 +142,7 @@ Designed-for, **not built yet**. Add each only when a metric demands it.
 
 1. Cursor pagination for very large lists.
 2. Caching/CDN for static assets; streaming RSC for fast first paint.
-3. Rate limiting on expensive procedures.
+3. Rate limiting on expensive endpoints.
 
 ---
 
@@ -154,7 +153,7 @@ To keep the MVP simple and focused, we deliberately are **not** building:
 - Microservices, event sourcing, CQRS, or a message bus beyond BullMQ.
 - A dedicated vector database.
 - Multi-region / sharded Postgres.
-- A public REST/GraphQL API (tRPC is internal; a public API needs a new ADR).
+- A _public/versioned_ external API (the current REST API is internal; a public one needs a new ADR).
 - Multi-provider AI routing before there's a second provider to route to.
 - Team/multi-seat features before single-user value is proven.
 

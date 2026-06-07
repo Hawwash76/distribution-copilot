@@ -23,7 +23,7 @@ apps/worker   ─┤── import @distribution-copilot/database (Prisma client 
 ```
 
 - **One database**, accessed only via `@distribution-copilot/database`.
-- **The web app never touches the database** — it goes through the API over tRPC.
+- **The web app never touches the database** — it goes through the API over the REST API (HTTP/JSON).
 - The Prisma client is a **singleton**, reused in development to avoid exhausting
   connections on hot reload (`packages/database/src/index.ts`).
 
@@ -107,11 +107,11 @@ deliberately — don't guess; add indexes for the queries repositories actually 
 
 ## 4. The repository boundary (critical)
 
-**All database access goes through a repository.** No Prisma calls in controllers, tRPC
-procedures, services-doing-other-things, the web app, or ad hoc scripts.
+**All database access goes through a repository.** No Prisma calls in controllers,
+services-doing-other-things, the web app, or ad hoc scripts.
 
 ```
-tRPC procedure / worker processor
+Controller route / worker processor
         │  (validated input, domain types)
         ▼
      Service            business logic, orchestration, authorization
@@ -125,7 +125,7 @@ tRPC procedure / worker processor
 
 Why this boundary is strict:
 
-- **Prisma types must not leak across the tRPC boundary.** Repositories map Prisma rows
+- **Prisma types must not leak across the API boundary.** Repositories map Prisma rows
   to Zod-derived domain types from `shared`. The API contract speaks domain types, not
   `@prisma/client` shapes (see [`CLAUDE.md`](../../CLAUDE.md) §4).
 - **It localizes scaling work.** When pgvector needs raw SQL, or a query needs

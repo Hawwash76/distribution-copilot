@@ -27,7 +27,7 @@ provider. **No AI vendor SDK is imported anywhere else.**
 
 **Depends on:** `shared`, `config`.
 
-**Must NOT:** import `database`, `trpc`, any app, or `ui`. It takes typed inputs and
+**Must NOT:** import `database`, any app, or `ui`. It takes typed inputs and
 returns typed outputs — **persistence is the caller's job.** It is framework-free.
 
 ## Folder conventions
@@ -66,7 +66,7 @@ with Zod** → return a typed result (with `rationale` + `model`).
 ## Anti-patterns
 
 - A vendor SDK imported in `api`/`worker`/`web` (all AI flows through this package).
-- Importing `database`/`trpc`/an app/`ui` here.
+- Importing `database`/an app/`ui` here.
 - Prompt text embedded in business logic instead of `prompts/` templates.
 - Returning unvalidated model output.
 - Interpolating raw scraped text into prompts without injection guards.
