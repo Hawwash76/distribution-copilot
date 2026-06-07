@@ -1,0 +1,9 @@
+{
+  "//": "Root tsconfig for editor support only. Each workspace owns its build tsconfig.",
+  "extends": "@distribution-copilot/typescript-config/base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [],
+  "exclude": ["node_modules", "**/dist", "**/.next"]
+}

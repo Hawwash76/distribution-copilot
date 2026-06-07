@@ -1,0 +1,37 @@
+{
+  "name": "@distribution-copilot/api",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@distribution-copilot/config": "workspace:*",
+    "@distribution-copilot/database": "workspace:*",
+    "@distribution-copilot/shared": "workspace:*",
+    "@distribution-copilot/trpc": "workspace:*",
+    "@nestjs/common": "^11.0.6",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.6",
+    "@nestjs/platform-express": "^11.0.6",
+    "better-auth": "^1.1.16",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@distribution-copilot/eslint-config": "workspace:*",
+    "@distribution-copilot/typescript-config": "workspace:*",
+    "@nestjs/cli": "^11.0.2",
+    "@nestjs/schematics": "^11.0.0",
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.3"
+  }
+}

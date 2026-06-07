@@ -1,0 +1,30 @@
+{
+  "name": "@distribution-copilot/worker",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@distribution-copilot/config": "workspace:*",
+    "@distribution-copilot/database": "workspace:*",
+    "@distribution-copilot/shared": "workspace:*",
+    "bullmq": "^5.34.10",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "@distribution-copilot/eslint-config": "workspace:*",
+    "@distribution-copilot/typescript-config": "workspace:*",
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

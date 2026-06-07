@@ -1,0 +1,45 @@
+// ---------------------------------------------------------------------------
+// Distribution Copilot — base Prisma schema (placeholder).
+//
+// Intentionally minimal. Only the bare User and Product models exist so the
+// client generates. Feature models (opportunities, communities, replies,
+// scores, embeddings, …) are added as those systems are built.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+  // `postgresqlExtensions` is required to manage pgvector via Prisma.
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // pgvector enabled here as a placeholder. No `vector` columns are defined
+  // yet — embeddings/semantic search are wired in later.
+  extensions = [vector]
+}
+
+// --- Placeholder models ----------------------------------------------------
+
+/// A platform user. Fields are minimal placeholders.
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+/// A product a user is distributing. Structure is an empty placeholder.
+model Product {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("products")
+}

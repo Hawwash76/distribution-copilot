@@ -1,0 +1,5 @@
+/*
+ * Placeholder stylesheet for shared UI components.
+ * shadcn/ui design tokens are defined in the consuming app's global CSS
+ * (see apps/web/src/app/globals.css). Component-scoped styles can live here.
+ */
