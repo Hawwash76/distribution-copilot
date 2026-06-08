@@ -3,6 +3,8 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
   type Product,
+  type ProductProfile,
+  type GeneratedProductProfile,
 } from "@distribution-copilot/shared";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
@@ -46,6 +48,50 @@ export class ProductsRepository {
 
   async delete(id: string, userId: string): Promise<void> {
     await this.prisma.db.product.delete({ where: { id, userId } });
+  }
+
+  async findProfile(productId: string): Promise<ProductProfile | null> {
+    const row = await this.prisma.db.productProfile.findUnique({ where: { productId } });
+    return row ? this.toProfile(row) : null;
+  }
+
+  async saveProfile(
+    productId: string,
+    data: GeneratedProductProfile,
+    model: string,
+  ): Promise<ProductProfile> {
+    const row = await this.prisma.db.productProfile.upsert({
+      where: { productId },
+      update: { ...data, modelUsed: model, generatedAt: new Date() },
+      create: { productId, ...data, modelUsed: model },
+    });
+    return this.toProfile(row);
+  }
+
+  private toProfile(row: {
+    id: string;
+    productId: string;
+    painPoints: string[];
+    personas: string[];
+    keywords: string[];
+    competitors: string[];
+    useCases: string[];
+    valueProps: string[];
+    modelUsed: string;
+    generatedAt: Date;
+  }): ProductProfile {
+    return {
+      id: row.id,
+      productId: row.productId,
+      painPoints: row.painPoints,
+      personas: row.personas,
+      keywords: row.keywords,
+      competitors: row.competitors,
+      useCases: row.useCases,
+      valueProps: row.valueProps,
+      modelUsed: row.modelUsed,
+      generatedAt: row.generatedAt,
+    };
   }
 
   private toProduct(row: {

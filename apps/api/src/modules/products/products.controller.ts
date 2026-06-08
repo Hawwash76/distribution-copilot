@@ -15,6 +15,7 @@ import {
   updateProductSchema,
   type CreateProductInput,
   type Product,
+  type ProductProfile,
   type UpdateProductInput,
 } from "@distribution-copilot/shared";
 
@@ -60,5 +61,21 @@ export class ProductsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   delete(@Param("id") id: string, @CurrentUser() user: { id: string }): Promise<void> {
     return this.productsService.delete(id, user.id);
+  }
+
+  @Post(":id/generate-profile")
+  generateProfile(
+    @Param("id") id: string,
+    @CurrentUser() user: { id: string },
+  ): Promise<ProductProfile> {
+    return this.productsService.generateProfile(id, user.id);
+  }
+
+  @Get(":id/profile")
+  getProfile(
+    @Param("id") id: string,
+    @CurrentUser() user: { id: string },
+  ): Promise<ProductProfile> {
+    return this.productsService.getProfile(id, user.id);
   }
 }

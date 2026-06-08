@@ -96,16 +96,35 @@ model UserProfile {
 }
 
 model Product {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   website     String?
   description String?
   audience    String?
   competitors String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  profile     ProductProfile?
 
   @@map("products")
+}
+
+/// AI-generated intelligence for a product, derived from its description.
+/// Stores the 6 structured outputs produced by the generate-profile capability.
+model ProductProfile {
+  id          String   @id @default(cuid())
+  productId   String   @unique
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  painPoints  String[]
+  personas    String[]
+  keywords    String[]
+  competitors String[]
+  useCases    String[]
+  valueProps  String[]
+  modelUsed   String
+  generatedAt DateTime @default(now())
+
+  @@map("product_profiles")
 }

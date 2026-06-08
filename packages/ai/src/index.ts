@@ -1,14 +1,17 @@
 /**
  * @distribution-copilot/ai
  *
- * Home for AI prompt templates and (later) agent/orchestration utilities.
+ * All AI capabilities for the platform. Application code imports capability
+ * functions and the provider factory from here — never the Anthropic SDK directly.
  *
- * Prompts are organized by capability under `./prompts`:
- *   - discovery/        finding relevant conversations
- *   - scoring/          ranking opportunities
- *   - reply-generation/ drafting context-aware replies
- *   - risk-analysis/    flagging risky/off-brand replies
- *
- * No prompts or logic are implemented yet — this package is structure only.
+ * Capabilities implemented:
+ *   - generateProductProfile: builds structured intelligence from a product description
  */
-export {};
+
+export {
+  generateProductProfile,
+  type ProductProfileResult,
+} from "./capabilities/generate-product-profile.js";
+
+export { createMockProvider } from "./providers/mock.js";
+export { type Provider, type JsonCompletion } from "./providers/provider.js";
