@@ -6,12 +6,15 @@
  *
  * Capabilities implemented:
  *   - generateProductProfile: builds structured intelligence from a product description
+ *   - scoreOpportunity: scores a discovered post on intent and relevance vs a product profile
  */
 
 export {
   generateProductProfile,
   type ProductProfileResult,
 } from "./capabilities/generate-product-profile.js";
+
+export { scoreOpportunity, type ScoreOpportunityResult } from "./capabilities/score-opportunity.js";
 
 export { createMockProvider } from "./providers/mock.js";
 export { type Provider, type JsonCompletion } from "./providers/provider.js";

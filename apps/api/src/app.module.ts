@@ -5,6 +5,7 @@ import { configuration } from "./config/configuration";
 import { AuthModule } from "./modules/auth/auth.module";
 import { DiscoveryModule } from "./modules/discovery/discovery.module";
 import { HealthModule } from "./modules/health/health.module";
+import { OpportunitiesModule } from "./modules/opportunities/opportunities.module";
 import { ProductsModule } from "./modules/products/products.module";
 
 @Module({
@@ -17,6 +18,7 @@ import { ProductsModule } from "./modules/products/products.module";
     AuthModule,
     ProductsModule,
     DiscoveryModule,
+    OpportunitiesModule,
   ],
 })
 export class AppModule {}

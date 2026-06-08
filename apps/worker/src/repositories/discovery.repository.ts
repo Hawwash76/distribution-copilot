@@ -86,6 +86,12 @@ export class DiscoveryRepository {
       publishedAt: row.publishedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      intentScore: row.intentScore,
+      relevanceScore: row.relevanceScore,
+      engagementScore: row.engagementScore,
+      recencyScore: row.recencyScore,
+      overallScore: row.overallScore,
+      scoringModel: row.scoringModel,
     };
   }
 }

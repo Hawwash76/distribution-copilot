@@ -165,6 +165,14 @@ model Opportunity {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
+  // Scoring fields — null until the scoring job runs
+  intentScore     Int?
+  relevanceScore  Int?
+  engagementScore Int?
+  recencyScore    Int?
+  overallScore    Int?
+  scoringModel    String? // which AI model produced intent/relevance; null when partial/no-AI
+
   @@unique([source, externalId, productId])
   @@map("opportunities")
 }
