@@ -166,12 +166,14 @@ model Opportunity {
   updatedAt    DateTime          @updatedAt
 
   // Scoring fields — null until the scoring job runs
-  intentScore     Int?
-  relevanceScore  Int?
-  engagementScore Int?
-  recencyScore    Int?
-  overallScore    Int?
-  scoringModel    String? // which AI model produced intent/relevance; null when partial/no-AI
+  intentScore       Int?
+  relevanceScore    Int?
+  engagementScore   Int?
+  recencyScore      Int?
+  overallScore      Int?
+  scoringModel      String?  // which AI model produced intent/relevance; null when partial/no-AI
+  intentRationale   String?  // AI explanation of why this post has high/low intent
+  relevanceRationale String? // AI explanation of why this post is relevant/irrelevant
 
   @@unique([source, externalId, productId])
   @@map("opportunities")

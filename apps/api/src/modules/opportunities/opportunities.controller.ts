@@ -16,4 +16,14 @@ export class OpportunitiesController {
   findAll(@Param("id") id: string, @CurrentUser() user: { id: string }): Promise<Opportunity[]> {
     return this.opportunitiesService.findByProduct(id, user.id);
   }
+
+  /** Returns a single opportunity with full detail including AI rationales. */
+  @Get(":id/opportunities/:opportunityId")
+  findOne(
+    @Param("id") id: string,
+    @Param("opportunityId") opportunityId: string,
+    @CurrentUser() user: { id: string },
+  ): Promise<Opportunity> {
+    return this.opportunitiesService.findOne(id, opportunityId, user.id);
+  }
 }

@@ -65,6 +65,12 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           >
             Edit
           </Link>
+          <Link
+            href={`/dashboard/products/${id}/opportunities`}
+            className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+          >
+            Opportunities
+          </Link>
           <button
             onClick={() => generateProfile(id)}
             disabled={isGenerating}

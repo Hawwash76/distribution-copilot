@@ -23,4 +23,14 @@ export class OpportunitiesService {
 
     return this.opportunities.findScoredByProduct(productId);
   }
+
+  async findOne(productId: string, opportunityId: string, userId: string): Promise<Opportunity> {
+    const product = await this.products.findOneByUser(productId, userId);
+    if (!product) throw new NotFoundException(`Product ${productId} not found`);
+
+    const opportunity = await this.opportunities.findById(opportunityId, productId);
+    if (!opportunity) throw new NotFoundException(`Opportunity ${opportunityId} not found`);
+
+    return opportunity;
+  }
 }
