@@ -79,6 +79,23 @@ model Verification {
   @@map("verifications")
 }
 
+// --- Domain enums -----------------------------------------------------------
+
+enum OpportunitySource {
+  reddit
+
+  @@map("opportunity_source")
+}
+
+enum OpportunityStatus {
+  new
+  scored
+  reviewed
+  dismissed
+
+  @@map("opportunity_status")
+}
+
 // --- Application models -----------------------------------------------------
 
 /// Extended profile data kept separate from the Better Auth User table.
@@ -96,19 +113,60 @@ model UserProfile {
 }
 
 model Product {
-  id          String          @id @default(cuid())
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  website     String?
-  description String?
-  audience    String?
-  competitors String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  profile     ProductProfile?
+  id            String          @id @default(cuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  website       String?
+  description   String?
+  audience      String?
+  competitors   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  profile       ProductProfile?
+  opportunities Opportunity[]
 
   @@map("products")
+}
+
+/// A source community (subreddit, etc.) where opportunities are discovered.
+model Community {
+  id              String            @id @default(cuid())
+  source          OpportunitySource
+  externalId      String
+  name            String
+  description     String?
+  subscriberCount Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  opportunities   Opportunity[]
+
+  @@unique([source, externalId])
+  @@map("communities")
+}
+
+/// A discovered online conversation that may be worth engaging with.
+model Opportunity {
+  id           String            @id @default(cuid())
+  productId    String
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  communityId  String
+  community    Community         @relation(fields: [communityId], references: [id])
+  source       OpportunitySource
+  externalId   String
+  status       OpportunityStatus @default(new)
+  title        String
+  body         String?
+  url          String
+  author       String
+  score        Int               @default(0)
+  commentCount Int               @default(0)
+  publishedAt  DateTime
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([source, externalId, productId])
+  @@map("opportunities")
 }
 
 /// AI-generated intelligence for a product, derived from its description.

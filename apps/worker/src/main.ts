@@ -1,21 +1,23 @@
-import { redisConnection } from "./config/redis";
+import { startDiscoveryWorker } from "./queues/discovery/discovery.worker.js";
 
 /**
- * Worker entrypoint (scaffold).
- *
- * No queues or processors are registered yet. When background jobs are
- * introduced, define BullMQ `Worker`s under `./queues` and start them here,
- * e.g.:
- *
- *   import { Worker } from "bullmq";
- *   new Worker("discovery", processor, { connection: redisConnection });
+ * Worker entrypoint — registers and starts all BullMQ workers.
+ * Add new workers here as new queues are introduced.
  */
 function bootstrap(): void {
-  // Reference the connection config so the scaffold reflects real wiring,
-  // without actually opening a connection.
-  void redisConnection;
+  const workers = [startDiscoveryWorker()];
 
-  console.log("[worker] started — no queues registered yet");
+  console.log(`[worker] started — ${String(workers.length)} queue(s) registered: discovery`);
+
+  // Graceful shutdown: allow in-flight jobs to finish before exiting.
+  const shutdown = async (): Promise<void> => {
+    console.log("[worker] shutting down…");
+    await Promise.all(workers.map((w) => w.close()));
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => void shutdown());
+  process.on("SIGINT", () => void shutdown());
 }
 
 bootstrap();
