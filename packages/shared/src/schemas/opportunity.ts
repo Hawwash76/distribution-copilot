@@ -34,6 +34,8 @@ export const opportunitySchema = zod.object({
   recencyScore: zod.number().int().nullable(),
   overallScore: zod.number().int().nullable(),
   scoringModel: zod.string().nullable(),
+  intentRationale: zod.string().nullable(),
+  relevanceRationale: zod.string().nullable(),
 });
 
 export type Opportunity = zod.infer<typeof opportunitySchema>;

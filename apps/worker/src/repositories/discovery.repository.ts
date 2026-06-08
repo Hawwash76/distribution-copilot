@@ -92,6 +92,8 @@ export class DiscoveryRepository {
       recencyScore: row.recencyScore,
       overallScore: row.overallScore,
       scoringModel: row.scoringModel,
+      intentRationale: row.intentRationale,
+      relevanceRationale: row.relevanceRationale,
     };
   }
 }

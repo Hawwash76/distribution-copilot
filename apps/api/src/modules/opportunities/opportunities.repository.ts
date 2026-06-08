@@ -31,6 +31,15 @@ export class OpportunitiesRepository {
     return rows.map((row) => this.toOpportunity(row));
   }
 
+  /** Returns a single opportunity by id, scoped to a product. */
+  async findById(id: string, productId: string): Promise<Opportunity | null> {
+    const row = await this.prisma.db.opportunity.findFirst({
+      where: { id, productId },
+    });
+    if (!row) return null;
+    return this.toOpportunity(row);
+  }
+
   private toOpportunity(row: {
     id: string;
     productId: string;
@@ -53,6 +62,8 @@ export class OpportunitiesRepository {
     recencyScore: number | null;
     overallScore: number | null;
     scoringModel: string | null;
+    intentRationale: string | null;
+    relevanceRationale: string | null;
   }): Opportunity {
     return {
       id: row.id,
@@ -76,6 +87,8 @@ export class OpportunitiesRepository {
       recencyScore: row.recencyScore,
       overallScore: row.overallScore,
       scoringModel: row.scoringModel,
+      intentRationale: row.intentRationale,
+      relevanceRationale: row.relevanceRationale,
     };
   }
 }

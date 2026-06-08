@@ -75,6 +75,8 @@ export async function runScoring(
         recencyScore,
         overallScore,
         scoringModel: model,
+        intentRationale: scores.intentRationale,
+        relevanceRationale: scores.relevanceRationale,
       });
 
       log(
@@ -91,6 +93,8 @@ export async function runScoring(
         recencyScore,
         overallScore,
         scoringModel: null,
+        intentRationale: null,
+        relevanceRationale: null,
       });
 
       log(

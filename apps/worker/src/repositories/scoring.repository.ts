@@ -9,6 +9,8 @@ export interface OpportunityScores {
   recencyScore: number;
   overallScore: number;
   scoringModel: string | null;
+  intentRationale: string | null;
+  relevanceRationale: string | null;
 }
 
 /**
@@ -60,6 +62,8 @@ export class ScoringRepository {
         recencyScore: scores.recencyScore,
         overallScore: scores.overallScore,
         scoringModel: scores.scoringModel,
+        intentRationale: scores.intentRationale,
+        relevanceRationale: scores.relevanceRationale,
         status: "scored",
       },
     });
@@ -87,6 +91,8 @@ export class ScoringRepository {
     recencyScore: number | null;
     overallScore: number | null;
     scoringModel: string | null;
+    intentRationale: string | null;
+    relevanceRationale: string | null;
   }): Opportunity {
     return {
       id: row.id,
@@ -110,6 +116,8 @@ export class ScoringRepository {
       recencyScore: row.recencyScore,
       overallScore: row.overallScore,
       scoringModel: row.scoringModel,
+      intentRationale: row.intentRationale,
+      relevanceRationale: row.relevanceRationale,
     };
   }
 }
