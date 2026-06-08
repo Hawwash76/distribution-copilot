@@ -1,41 +1,101 @@
 // ---------------------------------------------------------------------------
-// Distribution Copilot — base Prisma schema (placeholder).
+// Distribution Copilot — Prisma schema.
 //
-// Intentionally minimal. Only the bare User and Product models exist so the
-// client generates. Feature models (opportunities, communities, replies,
-// scores, embeddings, …) are added as those systems are built.
+// Better Auth models (User, Session, Account, Verification) are required by
+// the Prisma adapter and must not be renamed. UserProfile is our extension
+// for application-level profile data.
 // ---------------------------------------------------------------------------
 
 generator client {
-  provider = "prisma-client-js"
-  // `postgresqlExtensions` is required to manage pgvector via Prisma.
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  // pgvector enabled here as a placeholder. No `vector` columns are defined
-  // yet — embeddings/semantic search are wired in later.
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
   extensions = [vector]
 }
 
-// --- Placeholder models ----------------------------------------------------
+// --- Better Auth core models ------------------------------------------------
 
-/// A platform user. Fields are minimal placeholders.
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  profile       UserProfile?
 
   @@map("users")
 }
 
-/// A product a user is distributing. Structure is an empty placeholder.
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+// --- Application models -----------------------------------------------------
+
+/// Extended profile data kept separate from the Better Auth User table.
+model UserProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio       String?
+  company   String?
+  role      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
 model Product {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(cuid())
   name        String
   description String?
   createdAt   DateTime @default(now())

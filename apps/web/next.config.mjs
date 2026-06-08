@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Internal workspace packages ship pre-compiled JS, but listing the UI
-  // package here keeps things working if it ever ships untranspiled source.
   transpilePackages: ["@distribution-copilot/ui"],
+  async rewrites() {
+    return [
+      {
+        source: "/api/auth/:path*",
+        destination: `${process.env.API_URL ?? "http://localhost:4000"}/api/auth/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
