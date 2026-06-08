@@ -1,15 +1,31 @@
-import { z } from "zod";
+import { z as zod } from "zod";
 
 /**
- * Placeholder product schema. A product is the thing a founder is
- * distributing — used later for matching and reply context.
+ * Product schema — the thing a founder is distributing.
+ * Used for matching opportunities and generating context-aware replies.
  */
-export const productSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  description: z.string().nullable(),
-  createdAt: z.coerce.date(),
-  updatedAt: z.coerce.date(),
+export const productSchema = zod.object({
+  id: zod.string(),
+  userId: zod.string(),
+  name: zod.string(),
+  website: zod.string().nullable(),
+  description: zod.string().nullable(),
+  audience: zod.string().nullable(),
+  competitors: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
 });
 
-export type Product = z.infer<typeof productSchema>;
+export const createProductSchema = zod.object({
+  name: zod.string().min(1, "Name is required"),
+  website: zod.string().url("Must be a valid URL").optional(),
+  description: zod.string().optional(),
+  audience: zod.string().optional(),
+  competitors: zod.string().optional(),
+});
+
+export const updateProductSchema = createProductSchema.partial();
+
+export type Product = zod.infer<typeof productSchema>;
+export type CreateProductInput = zod.infer<typeof createProductSchema>;
+export type UpdateProductInput = zod.infer<typeof updateProductSchema>;

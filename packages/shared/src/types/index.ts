@@ -4,7 +4,7 @@
  * validation is needed.
  */
 export type { User } from "../schemas/user";
-export type { Product } from "../schemas/product";
+export type { Product, CreateProductInput, UpdateProductInput } from "../schemas/product";
 export type { Opportunity, OpportunitySource } from "../schemas/opportunity";
 
 /** Generic, transport-agnostic paginated result wrapper. */

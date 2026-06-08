@@ -20,16 +20,17 @@ datasource db {
 // --- Better Auth core models ------------------------------------------------
 
 model User {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String
-  email         String    @unique
+  email         String       @unique
   emailVerified Boolean
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   sessions      Session[]
   accounts      Account[]
   profile       UserProfile?
+  products      Product[]
 
   @@map("users")
 }
@@ -96,8 +97,13 @@ model UserProfile {
 
 model Product {
   id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
+  website     String?
   description String?
+  audience    String?
+  competitors String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

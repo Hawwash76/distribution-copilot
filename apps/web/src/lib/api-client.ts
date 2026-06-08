@@ -34,6 +34,8 @@ export class ApiError extends Error {
 export async function apiFetch(path: string, init?: RequestInit): Promise<unknown> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
+    // Required for cross-origin requests so the session cookie is sent to the API.
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...init?.headers,
@@ -46,6 +48,8 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<unknow
       `API request to ${path} failed (${String(response.status)})`,
     );
   }
+
+  if (response.status === 204) return undefined;
 
   return response.json();
 }
