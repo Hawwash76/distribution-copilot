@@ -2,12 +2,9 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 
 import { configuration } from "./config/configuration";
+import { AuthModule } from "./modules/auth/auth.module";
 import { HealthModule } from "./modules/health/health.module";
 
-/**
- * Root application module. Feature modules are imported here as they are
- * built (under `./modules`). Cross-cutting concerns live in `./common`.
- */
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -15,6 +12,7 @@ import { HealthModule } from "./modules/health/health.module";
       load: [configuration],
     }),
     HealthModule,
+    AuthModule,
   ],
 })
 export class AppModule {}
