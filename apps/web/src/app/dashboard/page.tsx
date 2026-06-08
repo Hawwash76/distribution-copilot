@@ -1,47 +1,34 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-import { APP_NAME } from "@distribution-copilot/config";
-
-import { signOut, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { data: session } = useSession();
 
-  async function handleSignOut() {
-    await signOut();
-    router.push("/login");
-  }
-
   return (
-    <div className="bg-background min-h-screen">
-      <header className="border-border border-b">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          <span className="font-semibold">{APP_NAME}</span>
-          <div className="flex items-center gap-4">
-            {session?.user && (
-              <span className="text-muted-foreground text-sm">{session.user.email}</span>
-            )}
-            <button
-              onClick={() => void handleSignOut()}
-              className="border-border hover:bg-accent hover:text-accent-foreground rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Welcome{session?.user?.name ? `, ${session.user.name}` : ""}
+        </h1>
+        <p className="text-muted-foreground mt-2 text-sm">
+          Find relevant conversations and draft replies for your products.
+        </p>
+      </div>
 
-      <main className="container mx-auto px-4 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Welcome{session?.user?.name ? `, ${session.user.name}` : ""}
-          </h1>
-          <p className="text-muted-foreground mt-2">Dashboard — nothing here yet.</p>
-        </div>
-      </main>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
+          href="/dashboard/products"
+          className="border-border bg-card hover:bg-accent/50 rounded-lg border p-5 transition-colors"
+        >
+          <h2 className="font-semibold">Products</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage the products you want to distribute.
+          </p>
+        </Link>
+      </div>
     </div>
   );
 }
