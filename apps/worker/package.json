@@ -12,6 +12,7 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
+    "@distribution-copilot/ai": "workspace:*",
     "@distribution-copilot/config": "workspace:*",
     "@distribution-copilot/database": "workspace:*",
     "@distribution-copilot/shared": "workspace:*",

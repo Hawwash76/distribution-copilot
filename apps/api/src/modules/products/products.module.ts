@@ -17,5 +17,6 @@ import { ProductsService } from "./products.service";
       useValue: createMockProvider(),
     },
   ],
+  exports: [ProductsRepository],
 })
 export class ProductsModule {}

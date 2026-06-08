@@ -1,13 +1,16 @@
 import { startDiscoveryWorker } from "./queues/discovery/discovery.worker.js";
+import { startScoringWorker } from "./queues/scoring/scoring.worker.js";
 
 /**
  * Worker entrypoint — registers and starts all BullMQ workers.
  * Add new workers here as new queues are introduced.
  */
 function bootstrap(): void {
-  const workers = [startDiscoveryWorker()];
+  const workers = [startDiscoveryWorker(), startScoringWorker()];
 
-  console.log(`[worker] started — ${String(workers.length)} queue(s) registered: discovery`);
+  console.log(
+    `[worker] started — ${String(workers.length)} queue(s) registered: discovery, scoring`,
+  );
 
   // Graceful shutdown: allow in-flight jobs to finish before exiting.
   const shutdown = async (): Promise<void> => {

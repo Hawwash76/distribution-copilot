@@ -7,3 +7,5 @@ export function isDefined<T>(value: T | null | undefined): value is T {
 export function assertNever(value: never): never {
   throw new Error(`Unexpected value: ${String(value)}`);
 }
+
+export * from "./scoring";
