@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 
@@ -28,15 +27,7 @@ export default function EditProductPage({ params }: EditProductPageProps) {
 
   return (
     <div className="max-w-xl">
-      <div className="mb-6">
-        <Link
-          href={`/dashboard/products/${id}`}
-          className="text-muted-foreground hover:text-foreground mb-4 inline-block text-sm transition-colors"
-        >
-          ← Back to product
-        </Link>
-        <h2 className="text-2xl font-semibold tracking-tight">Edit product</h2>
-      </div>
+      <h2 className="mb-6 text-xl font-semibold tracking-tight">Edit product</h2>
 
       <ProductForm
         initialValues={{

@@ -7,10 +7,14 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   return (
-    <Link
-      href={`/dashboard/products/${product.id}`}
-      className="border-border bg-card hover:bg-accent/50 block rounded-lg border p-5 transition-colors"
-    >
+    <div className="border-border bg-card hover:bg-accent/50 relative rounded-lg border p-5 transition-colors">
+      {/* Full-card link to the product overview — sits behind all content */}
+      <Link
+        href={`/dashboard/products/${product.id}`}
+        className="absolute inset-0 rounded-lg"
+        aria-label={product.name}
+      />
+
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="truncate font-semibold">{product.name}</h3>
@@ -22,6 +26,15 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
       </div>
-    </Link>
+
+      <div className="mt-4 flex justify-end">
+        <Link
+          href={`/dashboard/products/${product.id}/opportunities`}
+          className="text-primary relative z-10 text-xs font-medium hover:underline"
+        >
+          View Opportunities →
+        </Link>
+      </div>
+    </div>
   );
 }

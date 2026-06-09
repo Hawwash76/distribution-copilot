@@ -7,7 +7,12 @@ import {
   computeRecencyScore,
   computeRiskWarnings,
 } from "@distribution-copilot/shared";
-import { assessRisk, createMockProvider, scoreOpportunity } from "@distribution-copilot/ai";
+import {
+  assessRisk,
+  createMockProvider,
+  generateReplyDraft,
+  scoreOpportunity,
+} from "@distribution-copilot/ai";
 import { prisma } from "@distribution-copilot/database";
 
 import { ScoringRepository } from "../../repositories/scoring.repository.js";
@@ -93,6 +98,15 @@ export async function runScoring(
         riskScores.linkRisk,
       );
 
+      const { draft, model: draftModel } = await generateReplyDraft(
+        opp.title,
+        opp.body,
+        opp.communityName,
+        profile,
+        riskWarnings,
+        provider,
+      );
+
       await repo.saveScores(opp.id, {
         intentScore: scores.intentScore,
         relevanceScore: scores.relevanceScore,
@@ -110,6 +124,8 @@ export async function runScoring(
         riskWarnings,
         riskRationale: riskScores.riskRationale,
         riskModel,
+        replyDraft: draft.draft,
+        replyDraftModel: draftModel,
       });
 
       log(
@@ -136,6 +152,8 @@ export async function runScoring(
         riskWarnings: [],
         riskRationale: null,
         riskModel: null,
+        replyDraft: null,
+        replyDraftModel: null,
       });
 
       log(

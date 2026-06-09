@@ -5,7 +5,6 @@ import { use } from "react";
 import { type Opportunity } from "@distribution-copilot/shared";
 
 import { useOpportunities } from "@/features/opportunities/hooks/use-opportunities";
-import { useProduct } from "@/features/products/hooks/use-product";
 
 interface OpportunitiesPageProps {
   params: Promise<{ id: string }>;
@@ -13,24 +12,10 @@ interface OpportunitiesPageProps {
 
 export default function OpportunitiesPage({ params }: OpportunitiesPageProps) {
   const { id } = use(params);
-  const { data: product } = useProduct(id);
   const { data: opportunities, isLoading, isError } = useOpportunities(id);
 
   return (
     <div>
-      <div className="mb-6">
-        <Link
-          href={`/dashboard/products/${id}`}
-          className="text-muted-foreground hover:text-foreground mb-3 inline-block text-sm transition-colors"
-        >
-          ← {product?.name ?? "Product"}
-        </Link>
-        <h2 className="text-2xl font-semibold tracking-tight">Opportunities</h2>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Ranked conversations worth engaging with.
-        </p>
-      </div>
-
       {isLoading && <p className="text-muted-foreground text-sm">Loading…</p>}
 
       {isError && (
@@ -74,9 +59,9 @@ function OpportunityRow({ opp, productId }: { opp: Opportunity; productId: strin
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium leading-snug">{opp.title}</p>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          r/{opp.communityId} · u/{opp.author} · {ageLabel}
+          r/{opp.communityName ?? opp.communityId} · u/{opp.author} · {ageLabel}
         </p>
-        <div className="text-muted-foreground mt-1.5 flex items-center gap-3 text-xs">
+        <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-3 text-xs">
           <span>▲ {opp.score.toLocaleString()}</span>
           <span>💬 {opp.commentCount.toLocaleString()}</span>
           {opp.intentScore !== null && (
@@ -84,9 +69,23 @@ function OpportunityRow({ opp, productId }: { opp: Opportunity; productId: strin
               Intent {opp.intentScore} · Relevance {opp.relevanceScore}
             </span>
           )}
+          {opp.overallRisk !== null && <RiskBadge level={opp.overallRisk} />}
         </div>
       </div>
     </Link>
+  );
+}
+
+function RiskBadge({ level }: { level: "low" | "medium" | "high" }) {
+  const styles = {
+    low: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+    high: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  };
+  const labels = { low: "Low risk", medium: "Med risk", high: "High risk" };
+
+  return (
+    <span className={`rounded px-1.5 py-0.5 font-medium ${styles[level]}`}>{labels[level]}</span>
   );
 }
 

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use } from "react";
+import { use, useState } from "react";
 
 import { useProduct } from "@/features/products/hooks/use-product";
 import { useDeleteProduct } from "@/features/products/hooks/use-delete-product";
 import { useProductProfile } from "@/features/products/hooks/use-product-profile";
 import { useGenerateProfile } from "@/features/products/hooks/use-generate-profile";
+import { useDiscoverOpportunities } from "@/features/opportunities/hooks/use-discover-opportunities";
 
 interface ProductDetailPageProps {
   params: Promise<{ id: string }>;
@@ -20,6 +21,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { data: profile, isLoading: isProfileLoading } = useProductProfile(id);
   const { mutate: deleteProduct, isPending: isDeleting } = useDeleteProduct();
   const { mutate: generateProfile, isPending: isGenerating } = useGenerateProfile();
+  const { mutate: discover, isPending: isDiscovering } = useDiscoverOpportunities(id);
+  const [discoverQueued, setDiscoverQueued] = useState(false);
 
   function handleDelete() {
     if (!confirm("Delete this product? This cannot be undone.")) return;
@@ -38,54 +41,42 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
 
   return (
     <div className="max-w-xl">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <Link
-            href="/dashboard/products"
-            className="text-muted-foreground hover:text-foreground mb-4 inline-block text-sm transition-colors"
-          >
-            ← Back to products
-          </Link>
-          <h2 className="text-2xl font-semibold tracking-tight">{product.name}</h2>
-          {product.website && (
-            <a
-              href={product.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary mt-0.5 inline-block text-sm hover:underline"
-            >
-              {product.website}
-            </a>
-          )}
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <Link
-            href={`/dashboard/products/${id}/edit`}
-            className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Edit
-          </Link>
-          <Link
-            href={`/dashboard/products/${id}/opportunities`}
-            className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-          >
-            Opportunities
-          </Link>
-          <button
-            onClick={() => generateProfile(id)}
-            disabled={isGenerating}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {isGenerating ? "Generating…" : profile ? "Regenerate Profile" : "Generate Profile"}
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="text-destructive hover:bg-destructive/10 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {isDeleting ? "Deleting…" : "Delete"}
-          </button>
-        </div>
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Link
+          href={`/dashboard/products/${id}/edit`}
+          className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+        >
+          Edit
+        </Link>
+        <button
+          onClick={() => {
+            if (!profile?.keywords.length) return;
+            discover({ keywords: profile.keywords }, { onSuccess: () => setDiscoverQueued(true) });
+          }}
+          disabled={isDiscovering || !profile || discoverQueued}
+          title={!profile ? "Generate an AI profile first to unlock discovery" : undefined}
+          className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {isDiscovering
+            ? "Queuing…"
+            : discoverQueued
+              ? "Discovery queued ✓"
+              : "Find Opportunities"}
+        </button>
+        <button
+          onClick={() => generateProfile(id)}
+          disabled={isGenerating}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {isGenerating ? "Generating…" : profile ? "Regenerate Profile" : "Generate Profile"}
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="text-destructive hover:bg-destructive/10 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {isDeleting ? "Deleting…" : "Delete"}
+        </button>
       </div>
 
       <dl className="space-y-5">

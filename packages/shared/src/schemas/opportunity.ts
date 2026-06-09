@@ -24,6 +24,7 @@ export const opportunitySchema = zod.object({
   id: zod.string(),
   productId: zod.string(),
   communityId: zod.string(),
+  communityName: zod.string().nullable(),
   source: opportunitySourceSchema,
   externalId: zod.string(),
   status: opportunityStatusSchema,
@@ -54,6 +55,9 @@ export const opportunitySchema = zod.object({
   riskWarnings: zod.array(riskWarningSchema),
   riskRationale: zod.string().nullable(),
   riskModel: zod.string().nullable(),
+  // Reply draft fields — null until the scoring job runs (requires product profile)
+  replyDraft: zod.string().nullable(),
+  replyDraftModel: zod.string().nullable(),
 });
 
 export type Opportunity = zod.infer<typeof opportunitySchema>;
@@ -84,3 +88,13 @@ export const riskAiResultSchema = zod.object({
 });
 
 export type RiskAiResult = zod.infer<typeof riskAiResultSchema>;
+
+/**
+ * The validated shape returned by the AI for reply draft generation.
+ * The human always reviews and edits the draft before posting manually.
+ */
+export const replyDraftAiResultSchema = zod.object({
+  draft: zod.string(),
+});
+
+export type ReplyDraftAiResult = zod.infer<typeof replyDraftAiResultSchema>;
