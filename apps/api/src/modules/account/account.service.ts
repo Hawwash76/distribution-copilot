@@ -28,17 +28,18 @@ export class AccountService {
   }
 
   async changePassword(input: ChangePasswordInput, req: Request): Promise<void> {
-    const result = await auth.api.changePassword({
-      body: {
-        currentPassword: input.currentPassword,
-        newPassword: input.newPassword,
-        revokeOtherSessions: false,
-      },
-      headers: fromNodeHeaders(req.headers),
-    });
-
-    if (result.error) {
-      throw new BadRequestException(result.error.message ?? "Password change failed");
+    try {
+      await auth.api.changePassword({
+        body: {
+          currentPassword: input.currentPassword,
+          newPassword: input.newPassword,
+          revokeOtherSessions: false,
+        },
+        headers: fromNodeHeaders(req.headers),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Password change failed";
+      throw new BadRequestException(message);
     }
   }
 
