@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { type Opportunity } from "@distribution-copilot/shared";
+import { type Opportunity, type RiskLevel, type RiskWarning } from "@distribution-copilot/shared";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { PrismaService } from "../../common/prisma.service";
@@ -64,6 +64,14 @@ export class OpportunitiesRepository {
     scoringModel: string | null;
     intentRationale: string | null;
     relevanceRationale: string | null;
+    ruleViolationRisk: number | null;
+    promotionRisk: number | null;
+    linkRisk: number | null;
+    moderationRisk: number | null;
+    overallRisk: string | null;
+    riskWarnings: string[];
+    riskRationale: string | null;
+    riskModel: string | null;
   }): Opportunity {
     return {
       id: row.id,
@@ -89,6 +97,14 @@ export class OpportunitiesRepository {
       scoringModel: row.scoringModel,
       intentRationale: row.intentRationale,
       relevanceRationale: row.relevanceRationale,
+      ruleViolationRisk: row.ruleViolationRisk,
+      promotionRisk: row.promotionRisk,
+      linkRisk: row.linkRisk,
+      moderationRisk: row.moderationRisk,
+      overallRisk: row.overallRisk as RiskLevel | null,
+      riskWarnings: row.riskWarnings as RiskWarning[],
+      riskRationale: row.riskRationale,
+      riskModel: row.riskModel,
     };
   }
 }

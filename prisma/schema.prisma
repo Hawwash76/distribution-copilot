@@ -96,6 +96,14 @@ enum OpportunityStatus {
   @@map("opportunity_status")
 }
 
+enum RiskLevel {
+  low
+  medium
+  high
+
+  @@map("risk_level")
+}
+
 // --- Application models -----------------------------------------------------
 
 /// Extended profile data kept separate from the Better Auth User table.
@@ -166,14 +174,24 @@ model Opportunity {
   updatedAt    DateTime          @updatedAt
 
   // Scoring fields — null until the scoring job runs
-  intentScore       Int?
-  relevanceScore    Int?
-  engagementScore   Int?
-  recencyScore      Int?
-  overallScore      Int?
-  scoringModel      String?  // which AI model produced intent/relevance; null when partial/no-AI
-  intentRationale   String?  // AI explanation of why this post has high/low intent
-  relevanceRationale String? // AI explanation of why this post is relevant/irrelevant
+  intentScore        Int?
+  relevanceScore     Int?
+  engagementScore    Int?
+  recencyScore       Int?
+  overallScore       Int?
+  scoringModel       String?    // which AI model produced intent/relevance; null when partial/no-AI
+  intentRationale    String?    // AI explanation of why this post has high/low intent
+  relevanceRationale String?    // AI explanation of why this post is relevant/irrelevant
+
+  // Risk assessment fields — null until the scoring job runs (requires product profile)
+  ruleViolationRisk Int?        // 0-100: probability engaging would violate community rules
+  promotionRisk     Int?        // 0-100: how overtly promotional a reply would appear
+  linkRisk          Int?        // 0-100: likelihood a link would be seen as spam
+  moderationRisk    Int?        // 0-100: likelihood a reply gets removed or triggers user action
+  overallRisk       RiskLevel?  // worst-case band derived from the four scores
+  riskWarnings      String[]    // subset of: "avoid_links" | "avoid_cta" | "avoid_product_mention"
+  riskRationale     String?     // one-sentence explanation of the dominant risk
+  riskModel         String?     // AI model that produced the risk scores
 
   @@unique([source, externalId, productId])
   @@map("opportunities")

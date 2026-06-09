@@ -1,5 +1,16 @@
 import { type PrismaClient } from "@distribution-copilot/database";
-import { type Opportunity, type ProductProfile } from "@distribution-copilot/shared";
+import {
+  type Opportunity,
+  type ProductProfile,
+  type RiskLevel,
+  type RiskWarning,
+} from "@distribution-copilot/shared";
+
+/** Opportunity enriched with community context for the scoring + risk pipeline. */
+export interface ScoringOpportunity extends Opportunity {
+  communityName: string;
+  communityDescription: string | null;
+}
 
 /** Score data written per opportunity after the scoring job runs. */
 export interface OpportunityScores {
@@ -11,6 +22,15 @@ export interface OpportunityScores {
   scoringModel: string | null;
   intentRationale: string | null;
   relevanceRationale: string | null;
+  // Risk assessment — null when no product profile was available
+  ruleViolationRisk: number | null;
+  promotionRisk: number | null;
+  linkRisk: number | null;
+  moderationRisk: number | null;
+  overallRisk: RiskLevel | null;
+  riskWarnings: RiskWarning[];
+  riskRationale: string | null;
+  riskModel: string | null;
 }
 
 /**
@@ -20,13 +40,17 @@ export interface OpportunityScores {
 export class ScoringRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  /** Load all opportunities with status="new" for this product, newest first. */
-  async findNewByProduct(productId: string): Promise<Opportunity[]> {
+  /**
+   * Load all opportunities with status="new" for this product, newest first.
+   * Includes community name and description for risk assessment.
+   */
+  async findNewByProduct(productId: string): Promise<ScoringOpportunity[]> {
     const rows = await this.db.opportunity.findMany({
       where: { productId, status: "new" },
       orderBy: { publishedAt: "desc" },
+      include: { community: true },
     });
-    return rows.map((row) => this.toOpportunity(row));
+    return rows.map((row) => this.toScoringOpportunity(row));
   }
 
   /** Load the product's AI-generated profile, or null if not yet generated. */
@@ -64,12 +88,20 @@ export class ScoringRepository {
         scoringModel: scores.scoringModel,
         intentRationale: scores.intentRationale,
         relevanceRationale: scores.relevanceRationale,
+        ruleViolationRisk: scores.ruleViolationRisk,
+        promotionRisk: scores.promotionRisk,
+        linkRisk: scores.linkRisk,
+        moderationRisk: scores.moderationRisk,
+        overallRisk: scores.overallRisk ?? undefined,
+        riskWarnings: scores.riskWarnings,
+        riskRationale: scores.riskRationale,
+        riskModel: scores.riskModel,
         status: "scored",
       },
     });
   }
 
-  private toOpportunity(row: {
+  private toScoringOpportunity(row: {
     id: string;
     productId: string;
     communityId: string;
@@ -93,7 +125,16 @@ export class ScoringRepository {
     scoringModel: string | null;
     intentRationale: string | null;
     relevanceRationale: string | null;
-  }): Opportunity {
+    ruleViolationRisk: number | null;
+    promotionRisk: number | null;
+    linkRisk: number | null;
+    moderationRisk: number | null;
+    overallRisk: string | null;
+    riskWarnings: string[];
+    riskRationale: string | null;
+    riskModel: string | null;
+    community: { name: string; description: string | null };
+  }): ScoringOpportunity {
     return {
       id: row.id,
       productId: row.productId,
@@ -118,6 +159,16 @@ export class ScoringRepository {
       scoringModel: row.scoringModel,
       intentRationale: row.intentRationale,
       relevanceRationale: row.relevanceRationale,
+      ruleViolationRisk: row.ruleViolationRisk,
+      promotionRisk: row.promotionRisk,
+      linkRisk: row.linkRisk,
+      moderationRisk: row.moderationRisk,
+      overallRisk: row.overallRisk as RiskLevel | null,
+      riskWarnings: row.riskWarnings as RiskWarning[],
+      riskRationale: row.riskRationale,
+      riskModel: row.riskModel,
+      communityName: row.community.name,
+      communityDescription: row.community.description,
     };
   }
 }

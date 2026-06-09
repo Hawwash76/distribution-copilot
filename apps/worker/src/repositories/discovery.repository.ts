@@ -1,5 +1,10 @@
 import { type PrismaClient } from "@distribution-copilot/database";
-import { type Community, type Opportunity } from "@distribution-copilot/shared";
+import {
+  type Community,
+  type Opportunity,
+  type RiskLevel,
+  type RiskWarning,
+} from "@distribution-copilot/shared";
 
 import { type RawCommunity, type RawPost } from "../connectors/source-connector.js";
 
@@ -94,6 +99,14 @@ export class DiscoveryRepository {
       scoringModel: row.scoringModel,
       intentRationale: row.intentRationale,
       relevanceRationale: row.relevanceRationale,
+      ruleViolationRisk: row.ruleViolationRisk,
+      promotionRisk: row.promotionRisk,
+      linkRisk: row.linkRisk,
+      moderationRisk: row.moderationRisk,
+      overallRisk: row.overallRisk as RiskLevel | null,
+      riskWarnings: row.riskWarnings as RiskWarning[],
+      riskRationale: row.riskRationale,
+      riskModel: row.riskModel,
     };
   }
 }
