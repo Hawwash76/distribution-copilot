@@ -4,12 +4,10 @@ import { type Queue } from "bullmq";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
 import { PrismaService } from "../../common/prisma.service";
 
-export interface DiscoverInput {
-  keywords: string[];
-  subreddits?: string[];
-}
-
-/** Validates ownership then enqueues a discovery job for the given product. */
+/**
+ * Validates product ownership then enqueues a discovery job.
+ * The worker loads keywords from the product's AI profile internally.
+ */
 @Injectable()
 export class DiscoveryService {
   constructor(
@@ -17,11 +15,7 @@ export class DiscoveryService {
     @Inject("DISCOVERY_QUEUE") private readonly queue: Queue,
   ) {}
 
-  async enqueueForProduct(
-    productId: string,
-    userId: string,
-    input: DiscoverInput,
-  ): Promise<{ jobId: string }> {
+  async enqueueForProduct(productId: string, userId: string): Promise<{ jobId: string }> {
     const product = await this.prisma.db.product.findFirst({
       where: { id: productId, userId },
     });
@@ -30,7 +24,7 @@ export class DiscoveryService {
 
     const job = await this.queue.add(
       "discover",
-      { productId, keywords: input.keywords, subreddits: input.subreddits },
+      { productId },
       {
         jobId: `discovery:${productId}:${Date.now()}`,
         attempts: 3,

@@ -1,12 +1,15 @@
 import { z as zod } from "zod";
 
+import { discussionSourceSchema } from "./discussion";
+
 /**
- * Opportunity schemas — a discovered online conversation that may be worth
- * engaging with. Source and status enum values are lowercase to match the
- * Prisma-generated DB enum literals so both layers share the same strings.
+ * Opportunity schemas — a discovered discussion scored against a product.
+ * Content fields (title, body, url, etc.) are sourced from the linked Discussion;
+ * the API assembles a flat response so the frontend always sees one object.
  */
 
-export const opportunitySourceSchema = zod.enum(["reddit"]);
+/** Re-exported alias for backward compatibility across the codebase. */
+export const opportunitySourceSchema = discussionSourceSchema;
 export type OpportunitySource = zod.infer<typeof opportunitySourceSchema>;
 
 export const opportunityStatusSchema = zod.enum(["new", "scored", "reviewed", "dismissed"]);
@@ -23,30 +26,35 @@ export type RiskLevel = zod.infer<typeof riskLevelSchema>;
 export const opportunitySchema = zod.object({
   id: zod.string(),
   productId: zod.string(),
-  communityId: zod.string(),
-  communityName: zod.string().nullable(),
+  discussionId: zod.string(),
+  // Content fields assembled from the linked Discussion
   source: opportunitySourceSchema,
-  externalId: zod.string(),
-  status: opportunityStatusSchema,
+  externalId: zod.string().nullable(),
+  communityId: zod.string().nullable(),
+  communityName: zod.string().nullable(),
   title: zod.string(),
   body: zod.string().nullable(),
   url: zod.string().url(),
-  author: zod.string(),
-  score: zod.number().int(),
-  commentCount: zod.number().int(),
-  publishedAt: zod.coerce.date(),
+  author: zod.string().nullable(),
+  score: zod.number().int().nullable(), // platformScore from Discussion
+  commentCount: zod.number().int().nullable(),
+  publishedAt: zod.coerce.date().nullable(),
+  // Lifecycle
+  status: opportunityStatusSchema,
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   // Scoring fields
   intentScore: zod.number().int().nullable(),
   relevanceScore: zod.number().int().nullable(),
+  painScore: zod.number().int().nullable(),
+  urgencyScore: zod.number().int().nullable(),
   engagementScore: zod.number().int().nullable(),
   recencyScore: zod.number().int().nullable(),
   overallScore: zod.number().int().nullable(),
   scoringModel: zod.string().nullable(),
   intentRationale: zod.string().nullable(),
   relevanceRationale: zod.string().nullable(),
-  // Risk assessment fields — null until the scoring job runs (requires product profile)
+  // Risk assessment fields
   ruleViolationRisk: zod.number().int().nullable(),
   promotionRisk: zod.number().int().nullable(),
   linkRisk: zod.number().int().nullable(),
@@ -55,7 +63,7 @@ export const opportunitySchema = zod.object({
   riskWarnings: zod.array(riskWarningSchema),
   riskRationale: zod.string().nullable(),
   riskModel: zod.string().nullable(),
-  // Reply draft fields — null until the scoring job runs (requires product profile)
+  // Reply draft fields
   replyDraft: zod.string().nullable(),
   replyDraftModel: zod.string().nullable(),
 });

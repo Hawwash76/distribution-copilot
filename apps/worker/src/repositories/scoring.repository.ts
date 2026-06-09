@@ -1,14 +1,26 @@
 import { type PrismaClient } from "@distribution-copilot/database";
 import {
-  type Opportunity,
   type ProductProfile,
   type RiskLevel,
   type RiskWarning,
 } from "@distribution-copilot/shared";
 
-/** Opportunity enriched with community context for the scoring + risk pipeline. */
-export interface ScoringOpportunity extends Opportunity {
-  communityName: string;
+/**
+ * Opportunity enriched with content fields from the linked Discussion and its
+ * optional Community — everything the scoring + risk + reply-draft pipeline needs.
+ */
+export interface ScoringOpportunity {
+  id: string;
+  productId: string;
+  discussionId: string;
+  // Content from Discussion
+  title: string;
+  body: string | null;
+  platformScore: number; // 0 when null in DB (engagement score treats null as no signal)
+  commentCount: number; // 0 when null in DB
+  publishedAt: Date; // falls back to fetchedAt when null
+  // Community context for risk assessment (null for non-community sources)
+  communityName: string | null;
   communityDescription: string | null;
 }
 
@@ -22,7 +34,6 @@ export interface OpportunityScores {
   scoringModel: string | null;
   intentRationale: string | null;
   relevanceRationale: string | null;
-  // Risk assessment — null when no product profile was available
   ruleViolationRisk: number | null;
   promotionRisk: number | null;
   linkRisk: number | null;
@@ -31,7 +42,6 @@ export interface OpportunityScores {
   riskWarnings: RiskWarning[];
   riskRationale: string | null;
   riskModel: string | null;
-  // Reply draft — null when no product profile was available
   replyDraft: string | null;
   replyDraftModel: string | null;
 }
@@ -45,13 +55,18 @@ export class ScoringRepository {
 
   /**
    * Load all opportunities with status="new" for this product, newest first.
-   * Includes community name and description for risk assessment.
+   * Joins through Discussion and its optional Community so the processor has
+   * everything it needs without further queries.
    */
   async findNewByProduct(productId: string): Promise<ScoringOpportunity[]> {
     const rows = await this.db.opportunity.findMany({
       where: { productId, status: "new" },
-      orderBy: { publishedAt: "desc" },
-      include: { community: true },
+      orderBy: { createdAt: "desc" },
+      include: {
+        discussion: {
+          include: { community: true },
+        },
+      },
     });
     return rows.map((row) => this.toScoringOpportunity(row));
   }
@@ -109,75 +124,29 @@ export class ScoringRepository {
   private toScoringOpportunity(row: {
     id: string;
     productId: string;
-    communityId: string;
-    source: string;
-    externalId: string;
-    status: string;
-    title: string;
-    body: string | null;
-    url: string;
-    author: string;
-    score: number;
-    commentCount: number;
-    publishedAt: Date;
-    createdAt: Date;
-    updatedAt: Date;
-    intentScore: number | null;
-    relevanceScore: number | null;
-    engagementScore: number | null;
-    recencyScore: number | null;
-    overallScore: number | null;
-    scoringModel: string | null;
-    intentRationale: string | null;
-    relevanceRationale: string | null;
-    ruleViolationRisk: number | null;
-    promotionRisk: number | null;
-    linkRisk: number | null;
-    moderationRisk: number | null;
-    overallRisk: string | null;
-    riskWarnings: string[];
-    riskRationale: string | null;
-    riskModel: string | null;
-    replyDraft: string | null;
-    replyDraftModel: string | null;
-    community: { name: string; description: string | null };
+    discussionId: string;
+    discussion: {
+      title: string;
+      body: string | null;
+      platformScore: number | null;
+      commentCount: number | null;
+      publishedAt: Date | null;
+      fetchedAt: Date;
+      community: { name: string; description: string | null } | null;
+    };
   }): ScoringOpportunity {
+    const d = row.discussion;
     return {
       id: row.id,
       productId: row.productId,
-      communityId: row.communityId,
-      source: row.source as Opportunity["source"],
-      externalId: row.externalId,
-      status: row.status as Opportunity["status"],
-      title: row.title,
-      body: row.body,
-      url: row.url,
-      author: row.author,
-      score: row.score,
-      commentCount: row.commentCount,
-      publishedAt: row.publishedAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      intentScore: row.intentScore,
-      relevanceScore: row.relevanceScore,
-      engagementScore: row.engagementScore,
-      recencyScore: row.recencyScore,
-      overallScore: row.overallScore,
-      scoringModel: row.scoringModel,
-      intentRationale: row.intentRationale,
-      relevanceRationale: row.relevanceRationale,
-      ruleViolationRisk: row.ruleViolationRisk,
-      promotionRisk: row.promotionRisk,
-      linkRisk: row.linkRisk,
-      moderationRisk: row.moderationRisk,
-      overallRisk: row.overallRisk as RiskLevel | null,
-      riskWarnings: row.riskWarnings as RiskWarning[],
-      riskRationale: row.riskRationale,
-      riskModel: row.riskModel,
-      replyDraft: row.replyDraft,
-      replyDraftModel: row.replyDraftModel,
-      communityName: row.community.name,
-      communityDescription: row.community.description,
+      discussionId: row.discussionId,
+      title: d.title,
+      body: d.body,
+      platformScore: d.platformScore ?? 0,
+      commentCount: d.commentCount ?? 0,
+      publishedAt: d.publishedAt ?? d.fetchedAt,
+      communityName: d.community?.name ?? null,
+      communityDescription: d.community?.description ?? null,
     };
   }
 }

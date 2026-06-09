@@ -25,6 +25,7 @@ model User {
   email         String       @unique
   emailVerified Boolean
   image         String?
+  isDeleted     Boolean      @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   sessions      Session[]
@@ -81,10 +82,14 @@ model Verification {
 
 // --- Domain enums -----------------------------------------------------------
 
-enum OpportunitySource {
+/// Source platform where a discussion lives. SERP is the discovery mechanism;
+/// this enum identifies the content host (reddit, hackernews, or generic web).
+enum DiscussionSource {
   reddit
+  hackernews
+  web
 
-  @@map("opportunity_source")
+  @@map("discussion_source")
 }
 
 enum OpportunityStatus {
@@ -121,83 +126,104 @@ model UserProfile {
 }
 
 model Product {
-  id            String          @id @default(cuid())
-  userId        String
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String
-  website       String?
-  description   String?
-  audience      String?
-  competitors   String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  profile       ProductProfile?
-  opportunities Opportunity[]
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  website          String?
+  description      String?
+  audience         String?
+  competitors      String?
+  isDeleted        Boolean         @default(false)
+  lastDiscoveredAt DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  profile          ProductProfile?
+  opportunities    Opportunity[]
 
   @@map("products")
 }
 
-/// A source community (subreddit, etc.) where opportunities are discovered.
+/// A source community (subreddit, etc.) where discussions are discovered.
+/// Only applicable for platform sources that have communities (e.g. reddit).
 model Community {
-  id              String            @id @default(cuid())
-  source          OpportunitySource
+  id              String           @id @default(cuid())
+  source          DiscussionSource
   externalId      String
   name            String
   description     String?
   subscriberCount Int?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  opportunities   Opportunity[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  discussions     Discussion[]
 
   @@unique([source, externalId])
   @@map("communities")
 }
 
-/// A discovered online conversation that may be worth engaging with.
+/// A discovered online discussion fetched via SERP and content extraction.
+/// Source-agnostic: can be a Reddit post, HN thread, or any web page.
+/// The url field is the canonical unique identifier.
+model Discussion {
+  id            String           @id @default(cuid())
+  source        DiscussionSource
+  externalId    String?          // platform post ID (reddit base36 id, HN item id, etc.)
+  url           String           @unique
+  title         String
+  body          String?          // extracted main text; null for link-only posts
+  author        String?
+  platformScore Int?             // upvotes / points from the source platform
+  commentCount  Int?
+  publishedAt   DateTime?
+  fetchedAt     DateTime         @default(now())
+  communityId   String?          // null for non-community sources (generic web)
+  community     Community?       @relation(fields: [communityId], references: [id])
+  opportunities Opportunity[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("discussions")
+}
+
+/// A scored discussion tied to a product. Separates raw content (Discussion)
+/// from product-specific scoring, risk assessment, and reply drafts.
 model Opportunity {
   id           String            @id @default(cuid())
   productId    String
   product      Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  communityId  String
-  community    Community         @relation(fields: [communityId], references: [id])
-  source       OpportunitySource
-  externalId   String
+  discussionId String
+  discussion   Discussion        @relation(fields: [discussionId], references: [id])
   status       OpportunityStatus @default(new)
-  title        String
-  body         String?
-  url          String
-  author       String
-  score        Int               @default(0)
-  commentCount Int               @default(0)
-  publishedAt  DateTime
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
   // Scoring fields — null until the scoring job runs
-  intentScore        Int?
-  relevanceScore     Int?
-  engagementScore    Int?
-  recencyScore       Int?
-  overallScore       Int?
-  scoringModel       String?    // which AI model produced intent/relevance; null when partial/no-AI
-  intentRationale    String?    // AI explanation of why this post has high/low intent
-  relevanceRationale String?    // AI explanation of why this post is relevant/irrelevant
+  intentScore     Int?
+  relevanceScore  Int?
+  painScore       Int?    // null until AI ready
+  urgencyScore    Int?    // null until AI ready
+  engagementScore Int?
+  recencyScore    Int?
+  overallScore    Int?
+  scoringModel    String? // which AI model produced intent/relevance; null when partial/no-AI
+  intentRationale    String? // AI explanation of intent score
+  relevanceRationale String? // AI explanation of relevance score
 
   // Risk assessment fields — null until the scoring job runs (requires product profile)
-  ruleViolationRisk Int?        // 0-100: probability engaging would violate community rules
-  promotionRisk     Int?        // 0-100: how overtly promotional a reply would appear
-  linkRisk          Int?        // 0-100: likelihood a link would be seen as spam
-  moderationRisk    Int?        // 0-100: likelihood a reply gets removed or triggers user action
-  overallRisk       RiskLevel?  // worst-case band derived from the four scores
-  riskWarnings      String[]    // subset of: "avoid_links" | "avoid_cta" | "avoid_product_mention"
-  riskRationale     String?     // one-sentence explanation of the dominant risk
-  riskModel         String?     // AI model that produced the risk scores
+  ruleViolationRisk Int?       // 0-100: probability engaging would violate community rules
+  promotionRisk     Int?       // 0-100: how overtly promotional a reply would appear
+  linkRisk          Int?       // 0-100: likelihood a link would be seen as spam
+  moderationRisk    Int?       // 0-100: likelihood a reply gets removed or triggers user action
+  overallRisk       RiskLevel? // worst-case band derived from the four scores
+  riskWarnings      String[]   // subset of: "avoid_links" | "avoid_cta" | "avoid_product_mention"
+  riskRationale     String?    // one-sentence explanation of the dominant risk
+  riskModel         String?    // AI model that produced the risk scores
 
   // Reply draft fields — null until the scoring job runs (requires product profile)
-  replyDraft        String?     // AI-generated draft reply for the human to review and edit
-  replyDraftModel   String?     // AI model that produced the draft
+  replyDraft      String? // AI-generated draft reply for the human to review and edit
+  replyDraftModel String? // AI model that produced the draft
 
-  @@unique([source, externalId, productId])
+  @@unique([productId, discussionId])
   @@map("opportunities")
 }
 
