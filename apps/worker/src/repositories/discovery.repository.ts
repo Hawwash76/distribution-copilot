@@ -79,6 +79,7 @@ export class DiscoveryRepository {
       id: row.id,
       productId: row.productId,
       communityId: row.communityId,
+      communityName: null,
       source: row.source,
       externalId: row.externalId,
       status: row.status,
@@ -107,6 +108,8 @@ export class DiscoveryRepository {
       riskWarnings: row.riskWarnings as RiskWarning[],
       riskRationale: row.riskRationale,
       riskModel: row.riskModel,
+      replyDraft: row.replyDraft,
+      replyDraftModel: row.replyDraftModel,
     };
   }
 }

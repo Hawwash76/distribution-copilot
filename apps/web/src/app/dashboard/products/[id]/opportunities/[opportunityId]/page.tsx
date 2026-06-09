@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { use } from "react";
+import { use, useState } from "react";
 
 import { useOpportunity } from "@/features/opportunities/hooks/use-opportunity";
 
@@ -38,7 +38,9 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
             <div className="min-w-0 flex-1">
               <h2 className="text-xl font-semibold leading-snug">{opp.title}</h2>
               <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span className="text-foreground font-medium">r/{opp.communityId}</span>
+                <span className="text-foreground font-medium">
+                  r/{opp.communityName ?? opp.communityId}
+                </span>
                 <span>·</span>
                 <span>u/{opp.author}</span>
                 <span>·</span>
@@ -132,6 +134,44 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
               )}
             </div>
           )}
+
+          {/* Draft reply */}
+          {opp.replyDraft !== null && (
+            <DraftReplyCard draft={opp.replyDraft} model={opp.replyDraftModel} />
+          )}
+
+          {/* Risk assessment */}
+          {opp.overallRisk !== null && (
+            <div className="border-border rounded-lg border p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-medium">Engagement Risk</h3>
+                <RiskLevelBadge level={opp.overallRisk} />
+              </div>
+
+              <div className="mb-4 space-y-3">
+                <RiskBar label="Rule violation" score={opp.ruleViolationRisk} />
+                <RiskBar label="Promotion" score={opp.promotionRisk} />
+                <RiskBar label="Link" score={opp.linkRisk} />
+                <RiskBar label="Moderation" score={opp.moderationRisk} />
+              </div>
+
+              {opp.riskWarnings.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {opp.riskWarnings.map((w) => (
+                    <WarningPill key={w} warning={w} />
+                  ))}
+                </div>
+              )}
+
+              {opp.riskRationale && (
+                <p className="text-muted-foreground text-xs leading-relaxed">{opp.riskRationale}</p>
+              )}
+
+              {opp.riskModel && (
+                <p className="text-muted-foreground mt-3 text-xs">Model: {opp.riskModel}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -169,6 +209,89 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
           style={{ width: `${String(pct)}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+/** Like ScoreBar but colors are inverted — higher score means higher risk. */
+function RiskBar({ label, score }: { label: string; score: number | null }) {
+  const pct = score ?? 0;
+  const barColor = pct >= 70 ? "bg-red-500" : pct >= 40 ? "bg-yellow-500" : "bg-green-500";
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">{score ?? "—"}</span>
+      </div>
+      <div className="bg-muted h-1.5 overflow-hidden rounded-full">
+        <div
+          className={`h-full rounded-full transition-all ${score !== null ? barColor : "bg-muted"}`}
+          style={{ width: `${String(pct)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RiskLevelBadge({ level }: { level: "low" | "medium" | "high" }) {
+  const styles = {
+    low: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+    high: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  };
+  const labels = { low: "Low", medium: "Medium", high: "High" };
+
+  return (
+    <span className={`rounded px-2 py-0.5 text-xs font-semibold ${styles[level]}`}>
+      {labels[level]}
+    </span>
+  );
+}
+
+const WARNING_LABELS: Record<string, string> = {
+  avoid_links: "Avoid links",
+  avoid_cta: "Avoid CTAs",
+  avoid_product_mention: "Avoid product mention",
+};
+
+function WarningPill({ warning }: { warning: string }) {
+  return (
+    <span className="bg-destructive/10 text-destructive rounded px-2 py-0.5 text-xs font-medium">
+      ⚠ {WARNING_LABELS[warning] ?? warning}
+    </span>
+  );
+}
+
+function DraftReplyCard({ draft, model }: { draft: string; model: string | null }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    void navigator.clipboard.writeText(draft).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="border-border rounded-lg border p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-medium">Draft Reply</h3>
+        <button
+          onClick={handleCopy}
+          className="border-border hover:bg-accent rounded px-2 py-1 text-xs font-medium transition-colors"
+        >
+          {copied ? "Copied ✓" : "Copy"}
+        </button>
+      </div>
+
+      <p className="border-border bg-muted/40 mb-3 whitespace-pre-wrap rounded border p-3 text-sm leading-relaxed">
+        {draft}
+      </p>
+
+      <p className="text-muted-foreground text-xs">Review and edit before posting manually.</p>
+
+      {model && <p className="text-muted-foreground mt-1 text-xs">Model: {model}</p>}
     </div>
   );
 }

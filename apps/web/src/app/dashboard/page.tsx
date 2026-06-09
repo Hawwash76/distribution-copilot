@@ -28,6 +28,15 @@ export default function DashboardPage() {
             Manage the products you want to distribute.
           </p>
         </Link>
+        <Link
+          href="/dashboard/opportunities"
+          className="border-border bg-card hover:bg-accent/50 rounded-lg border p-5 transition-colors"
+        >
+          <h2 className="font-semibold">Opportunities</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Browse ranked conversations worth engaging with.
+          </p>
+        </Link>
       </div>
     </div>
   );

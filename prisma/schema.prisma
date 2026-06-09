@@ -193,6 +193,10 @@ model Opportunity {
   riskRationale     String?     // one-sentence explanation of the dominant risk
   riskModel         String?     // AI model that produced the risk scores
 
+  // Reply draft fields — null until the scoring job runs (requires product profile)
+  replyDraft        String?     // AI-generated draft reply for the human to review and edit
+  replyDraftModel   String?     // AI model that produced the draft
+
   @@unique([source, externalId, productId])
   @@map("opportunities")
 }

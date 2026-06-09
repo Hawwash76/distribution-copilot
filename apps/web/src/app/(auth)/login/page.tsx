@@ -16,6 +16,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const wasReset = searchParams.get("reset") === "1";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -57,9 +59,17 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm font-medium">
+              Password
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-muted-foreground hover:text-foreground text-xs transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <input
             id="password"
             type="password"
@@ -71,6 +81,12 @@ export default function LoginPage() {
             placeholder="••••••••"
           />
         </div>
+
+        {wasReset && (
+          <p className="text-sm text-green-600 dark:text-green-400">
+            Password updated. Sign in with your new password.
+          </p>
+        )}
 
         {error && <p className="text-destructive text-sm">{error}</p>}
 

@@ -6,7 +6,10 @@ import { useRouter, usePathname } from "next/navigation";
 import { APP_NAME } from "@distribution-copilot/config";
 import { signOut, useSession } from "@/lib/auth-client";
 
-const NAV_LINKS = [{ href: "/dashboard/products", label: "Products" }];
+const NAV_LINKS = [
+  { href: "/dashboard/products", label: "Products" },
+  { href: "/dashboard/opportunities", label: "Opportunities" },
+];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

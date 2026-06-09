@@ -31,6 +31,9 @@ export interface OpportunityScores {
   riskWarnings: RiskWarning[];
   riskRationale: string | null;
   riskModel: string | null;
+  // Reply draft — null when no product profile was available
+  replyDraft: string | null;
+  replyDraftModel: string | null;
 }
 
 /**
@@ -96,6 +99,8 @@ export class ScoringRepository {
         riskWarnings: scores.riskWarnings,
         riskRationale: scores.riskRationale,
         riskModel: scores.riskModel,
+        replyDraft: scores.replyDraft,
+        replyDraftModel: scores.replyDraftModel,
         status: "scored",
       },
     });
@@ -133,6 +138,8 @@ export class ScoringRepository {
     riskWarnings: string[];
     riskRationale: string | null;
     riskModel: string | null;
+    replyDraft: string | null;
+    replyDraftModel: string | null;
     community: { name: string; description: string | null };
   }): ScoringOpportunity {
     return {
@@ -167,6 +174,8 @@ export class ScoringRepository {
       riskWarnings: row.riskWarnings as RiskWarning[],
       riskRationale: row.riskRationale,
       riskModel: row.riskModel,
+      replyDraft: row.replyDraft,
+      replyDraftModel: row.replyDraftModel,
       communityName: row.community.name,
       communityDescription: row.community.description,
     };

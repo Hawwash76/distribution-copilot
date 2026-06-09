@@ -27,6 +27,7 @@ export class OpportunitiesRepository {
         status: { in: ["scored", "reviewed"] },
       },
       orderBy: { overallScore: "desc" },
+      include: { community: true },
     });
     return rows.map((row) => this.toOpportunity(row));
   }
@@ -35,6 +36,7 @@ export class OpportunitiesRepository {
   async findById(id: string, productId: string): Promise<Opportunity | null> {
     const row = await this.prisma.db.opportunity.findFirst({
       where: { id, productId },
+      include: { community: true },
     });
     if (!row) return null;
     return this.toOpportunity(row);
@@ -44,6 +46,7 @@ export class OpportunitiesRepository {
     id: string;
     productId: string;
     communityId: string;
+    community: { name: string };
     source: string;
     externalId: string;
     status: string;
@@ -72,11 +75,14 @@ export class OpportunitiesRepository {
     riskWarnings: string[];
     riskRationale: string | null;
     riskModel: string | null;
+    replyDraft: string | null;
+    replyDraftModel: string | null;
   }): Opportunity {
     return {
       id: row.id,
       productId: row.productId,
       communityId: row.communityId,
+      communityName: row.community.name,
       source: row.source as Opportunity["source"],
       externalId: row.externalId,
       status: row.status as Opportunity["status"],
@@ -105,6 +111,8 @@ export class OpportunitiesRepository {
       riskWarnings: row.riskWarnings as RiskWarning[],
       riskRationale: row.riskRationale,
       riskModel: row.riskModel,
+      replyDraft: row.replyDraft,
+      replyDraftModel: row.replyDraftModel,
     };
   }
 }
