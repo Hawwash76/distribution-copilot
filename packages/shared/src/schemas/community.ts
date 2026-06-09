@@ -1,11 +1,11 @@
 import { z as zod } from "zod";
 
-import { opportunitySourceSchema } from "./opportunity";
+import { discussionSourceSchema } from "./discussion";
 
-/** A community (subreddit, etc.) where opportunities are discovered. */
+/** A community (subreddit, etc.) where discussions are discovered. */
 export const communitySchema = zod.object({
   id: zod.string(),
-  source: opportunitySourceSchema,
+  source: discussionSourceSchema,
   externalId: zod.string(),
   name: zod.string(),
   description: zod.string().nullable(),

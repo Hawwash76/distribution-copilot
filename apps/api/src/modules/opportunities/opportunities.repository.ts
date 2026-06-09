@@ -7,6 +7,8 @@ import { PrismaService } from "../../common/prisma.service";
 /**
  * All Prisma access for the opportunities feature.
  * Queries are scoped to a productId; ownership is enforced in the service layer.
+ * The flat Opportunity domain type is assembled from the Opportunity row joined
+ * through its Discussion (and optionally the Discussion's Community).
  */
 @Injectable()
 export class OpportunitiesRepository {
@@ -27,7 +29,11 @@ export class OpportunitiesRepository {
         status: { in: ["scored", "reviewed"] },
       },
       orderBy: { overallScore: "desc" },
-      include: { community: true },
+      include: {
+        discussion: {
+          include: { community: true },
+        },
+      },
     });
     return rows.map((row) => this.toOpportunity(row));
   }
@@ -36,7 +42,11 @@ export class OpportunitiesRepository {
   async findById(id: string, productId: string): Promise<Opportunity | null> {
     const row = await this.prisma.db.opportunity.findFirst({
       where: { id, productId },
-      include: { community: true },
+      include: {
+        discussion: {
+          include: { community: true },
+        },
+      },
     });
     if (!row) return null;
     return this.toOpportunity(row);
@@ -45,22 +55,14 @@ export class OpportunitiesRepository {
   private toOpportunity(row: {
     id: string;
     productId: string;
-    communityId: string;
-    community: { name: string };
-    source: string;
-    externalId: string;
+    discussionId: string;
     status: string;
-    title: string;
-    body: string | null;
-    url: string;
-    author: string;
-    score: number;
-    commentCount: number;
-    publishedAt: Date;
     createdAt: Date;
     updatedAt: Date;
     intentScore: number | null;
     relevanceScore: number | null;
+    painScore: number | null;
+    urgencyScore: number | null;
     engagementScore: number | null;
     recencyScore: number | null;
     overallScore: number | null;
@@ -77,32 +79,53 @@ export class OpportunitiesRepository {
     riskModel: string | null;
     replyDraft: string | null;
     replyDraftModel: string | null;
+    discussion: {
+      source: string;
+      externalId: string | null;
+      url: string;
+      title: string;
+      body: string | null;
+      author: string | null;
+      platformScore: number | null;
+      commentCount: number | null;
+      publishedAt: Date | null;
+      communityId: string | null;
+      community: { name: string } | null;
+    };
   }): Opportunity {
+    const d = row.discussion;
     return {
       id: row.id,
       productId: row.productId,
-      communityId: row.communityId,
-      communityName: row.community.name,
-      source: row.source as Opportunity["source"],
-      externalId: row.externalId,
+      discussionId: row.discussionId,
+      // Content sourced from the joined Discussion
+      source: d.source as Opportunity["source"],
+      externalId: d.externalId,
+      communityId: d.communityId,
+      communityName: d.community?.name ?? null,
+      title: d.title,
+      body: d.body,
+      url: d.url,
+      author: d.author,
+      score: d.platformScore,
+      commentCount: d.commentCount,
+      publishedAt: d.publishedAt,
+      // Lifecycle
       status: row.status as Opportunity["status"],
-      title: row.title,
-      body: row.body,
-      url: row.url,
-      author: row.author,
-      score: row.score,
-      commentCount: row.commentCount,
-      publishedAt: row.publishedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      // Scoring
       intentScore: row.intentScore,
       relevanceScore: row.relevanceScore,
+      painScore: row.painScore,
+      urgencyScore: row.urgencyScore,
       engagementScore: row.engagementScore,
       recencyScore: row.recencyScore,
       overallScore: row.overallScore,
       scoringModel: row.scoringModel,
       intentRationale: row.intentRationale,
       relevanceRationale: row.relevanceRationale,
+      // Risk
       ruleViolationRisk: row.ruleViolationRisk,
       promotionRisk: row.promotionRisk,
       linkRisk: row.linkRisk,
@@ -111,6 +134,7 @@ export class OpportunitiesRepository {
       riskWarnings: row.riskWarnings as RiskWarning[],
       riskRationale: row.riskRationale,
       riskModel: row.riskModel,
+      // Reply draft
       replyDraft: row.replyDraft,
       replyDraftModel: row.replyDraftModel,
     };

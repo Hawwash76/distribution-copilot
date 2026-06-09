@@ -117,10 +117,14 @@ apps/web  ──(REST over HTTP/JSON, shapes from @distribution-copilot/shared)�
                                           Controller → Service → Repository → Prisma
                                                                           ▼
                                                               PostgreSQL + pgvector
-  ┌───────────────────────────────────────────────────────────────────────┐
-  │  apps/worker consumes BullMQ queues (Redis), runs long jobs (discovery, │
-  │  scoring, embeddings), and writes results to the same database.         │
-  └───────────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────────────────┐
+  │  apps/worker runs a three-queue SERP discovery pipeline:                    │
+  │    "discovery" → SerpAPI → URLs → enqueues "extract" jobs (one per URL)     │
+  │    "extract"   → fetches URL → upserts Discussion + Opportunity → enqueues  │
+  │                  "scoring" job                                               │
+  │    "scoring"   → AI scoring → saves scores; status advances to "scored"     │
+  │  External APIs: SerpAPI (SERP), Reddit public JSON, Algolia HN API.         │
+  └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - The **web app never talks to the database directly.** It calls the REST API over
@@ -130,8 +134,12 @@ apps/web  ──(REST over HTTP/JSON, shapes from @distribution-copilot/shared)�
 - The **worker** shares `database` and `shared`. It is triggered by
   enqueued jobs, not HTTP. Long or external-I/O-bound work belongs here, never in a
   request handler.
-- **Heavy/async work is enqueued, not awaited in-request.** Scraping, embedding, and
-  AI calls run in the worker.
+- **Heavy/async work is enqueued, not awaited in-request.** SERP search, URL extraction,
+  and AI scoring all run in the worker.
+- **`Discussion` holds raw fetched content** (source-agnostic, unique on `url`).
+  **`Opportunity`** is the product-specific join to a Discussion, storing all
+  scoring/risk/reply fields. This separation lets any future source flow through the same
+  scoring pipeline unchanged.
 
 For the full picture see
 [`docs/architecture/backend-architecture.md`](docs/architecture/backend-architecture.md),

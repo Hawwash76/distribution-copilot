@@ -1,8 +1,7 @@
 import { z as zod } from "zod";
 
-export const triggerDiscoverySchema = zod.object({
-  keywords: zod.array(zod.string().min(1)).min(1, "At least one keyword is required"),
-  subreddits: zod.array(zod.string().min(1)).optional(),
-});
+/** No body is required — the productId comes from the URL param and keywords
+ *  are loaded from the product's AI profile inside the worker. */
+export const triggerDiscoverySchema = zod.object({});
 
 export type TriggerDiscoveryInput = zod.infer<typeof triggerDiscoverySchema>;

@@ -16,10 +16,18 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
   if (isLoading) return <p className="text-muted-foreground text-sm">Loading…</p>;
   if (isError || !opp) return <p className="text-destructive text-sm">Opportunity not found.</p>;
 
-  const publishedAt = new Date(opp.publishedAt);
-  const ageDays = Math.floor((Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24));
+  const publishedAt = opp.publishedAt ? new Date(opp.publishedAt) : null;
+  const ageDays = publishedAt
+    ? Math.floor((Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
   const ageLabel =
-    ageDays === 0 ? "today" : ageDays === 1 ? "yesterday" : `${String(ageDays)} days ago`;
+    ageDays === null
+      ? "unknown age"
+      : ageDays === 0
+        ? "today"
+        : ageDays === 1
+          ? "yesterday"
+          : `${String(ageDays)} days ago`;
 
   return (
     <div className="max-w-4xl">
@@ -39,10 +47,10 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
               <h2 className="text-xl font-semibold leading-snug">{opp.title}</h2>
               <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="text-foreground font-medium">
-                  r/{opp.communityName ?? opp.communityId}
+                  {opp.communityName ?? opp.communityId ?? opp.source}
                 </span>
                 <span>·</span>
-                <span>u/{opp.author}</span>
+                <span>{opp.author ?? "unknown"}</span>
                 <span>·</span>
                 <span>{ageLabel}</span>
               </div>
@@ -52,11 +60,11 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
           {/* Conversation context */}
           <div className="border-border mb-5 flex items-center gap-6 rounded-lg border px-4 py-3 text-sm">
             <span>
-              <span className="font-medium">▲ {opp.score.toLocaleString()}</span>
+              <span className="font-medium">▲ {opp.score?.toLocaleString() ?? "—"}</span>
               <span className="text-muted-foreground ml-1">upvotes</span>
             </span>
             <span>
-              <span className="font-medium">💬 {opp.commentCount.toLocaleString()}</span>
+              <span className="font-medium">💬 {opp.commentCount?.toLocaleString() ?? "—"}</span>
               <span className="text-muted-foreground ml-1">comments</span>
             </span>
             <a
@@ -65,7 +73,7 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
               rel="noopener noreferrer"
               className="text-primary ml-auto hover:underline"
             >
-              View on Reddit ↗
+              View source ↗
             </a>
           </div>
 
@@ -102,6 +110,8 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
             <div className="space-y-3">
               <ScoreBar label="Intent" score={opp.intentScore} />
               <ScoreBar label="Relevance" score={opp.relevanceScore} />
+              <ScoreBar label="Pain" score={opp.painScore} />
+              <ScoreBar label="Urgency" score={opp.urgencyScore} />
               <ScoreBar label="Engagement" score={opp.engagementScore} />
               <ScoreBar label="Recency" score={opp.recencyScore} />
             </div>

@@ -65,7 +65,7 @@ export async function runScoring(
   let partialScores = 0;
 
   for (const opp of opportunities) {
-    const engagementScore = computeEngagementScore(opp.score, opp.commentCount);
+    const engagementScore = computeEngagementScore(opp.platformScore, opp.commentCount);
     const recencyScore = computeRecencyScore(opp.publishedAt, now);
 
     if (hasProfile && profile) {
@@ -80,7 +80,7 @@ export async function runScoring(
       const { riskScores, model: riskModel } = await assessRisk(
         opp.title,
         opp.body,
-        opp.communityName,
+        opp.communityName ?? "",
         opp.communityDescription,
         profile,
         provider,
@@ -101,7 +101,7 @@ export async function runScoring(
       const { draft, model: draftModel } = await generateReplyDraft(
         opp.title,
         opp.body,
-        opp.communityName,
+        opp.communityName ?? "",
         profile,
         riskWarnings,
         provider,
@@ -129,7 +129,7 @@ export async function runScoring(
       });
 
       log(
-        `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)} risk=${overallRisk} warnings=${riskWarnings.join(",")}`,
+        `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)} risk=${overallRisk}`,
       );
       opportunitiesScored++;
     } else {

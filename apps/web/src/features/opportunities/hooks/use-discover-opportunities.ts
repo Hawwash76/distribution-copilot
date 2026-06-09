@@ -2,26 +2,21 @@ import { useMutation } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api-client";
 
-interface DiscoverInput {
-  keywords: string[];
-  subreddits?: string[];
-}
-
 interface DiscoverResult {
   jobId: string;
   status: "queued";
 }
 
 /**
- * Enqueues a discovery job for a product. The job runs in the background —
- * newly discovered opportunities appear once scoring completes.
+ * Enqueues a SERP discovery job for a product. Keywords are loaded from the
+ * product's AI profile inside the worker — no input needed from the client.
+ * Newly discovered opportunities appear once scoring completes.
  */
 export function useDiscoverOpportunities(productId: string) {
   return useMutation({
-    mutationFn: (input: DiscoverInput) =>
+    mutationFn: () =>
       apiFetch(`/products/${productId}/discover`, {
         method: "POST",
-        body: JSON.stringify(input),
       }) as Promise<DiscoverResult>,
   });
 }

@@ -51,7 +51,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         <button
           onClick={() => {
             if (!profile?.keywords.length) return;
-            discover({ keywords: profile.keywords }, { onSuccess: () => setDiscoverQueued(true) });
+            discover(undefined, { onSuccess: () => setDiscoverQueued(true) });
           }}
           disabled={isDiscovering || !profile || discoverQueued}
           title={!profile ? "Generate an AI profile first to unlock discovery" : undefined}

@@ -3,11 +3,18 @@ import { type Opportunity } from "@distribution-copilot/shared";
 
 /** Single row in an opportunities list, linking to the opportunity detail page. */
 export function OpportunityRow({ opp, productId }: { opp: Opportunity; productId: string }) {
-  const ageDays = Math.floor(
-    (Date.now() - new Date(opp.publishedAt).getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const publishedAt = opp.publishedAt ? new Date(opp.publishedAt) : null;
+  const ageDays = publishedAt
+    ? Math.floor((Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
   const ageLabel =
-    ageDays === 0 ? "today" : ageDays === 1 ? "yesterday" : `${String(ageDays)}d ago`;
+    ageDays === null
+      ? "—"
+      : ageDays === 0
+        ? "today"
+        : ageDays === 1
+          ? "yesterday"
+          : `${String(ageDays)}d ago`;
 
   return (
     <Link
@@ -19,11 +26,12 @@ export function OpportunityRow({ opp, productId }: { opp: Opportunity; productId
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium leading-snug">{opp.title}</p>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          r/{opp.communityName ?? opp.communityId} · u/{opp.author} · {ageLabel}
+          {opp.communityName ?? opp.communityId ?? opp.source} · {opp.author ?? "unknown"} ·{" "}
+          {ageLabel}
         </p>
         <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-3 text-xs">
-          <span>▲ {opp.score.toLocaleString()}</span>
-          <span>💬 {opp.commentCount.toLocaleString()}</span>
+          <span>▲ {opp.score?.toLocaleString() ?? "—"}</span>
+          <span>💬 {opp.commentCount?.toLocaleString() ?? "—"}</span>
           {opp.intentScore !== null && (
             <span className="text-foreground/60">
               Intent {opp.intentScore} · Relevance {opp.relevanceScore}
