@@ -9,3 +9,4 @@ export function assertNever(value: never): never {
 }
 
 export * from "./scoring";
+export * from "./risk";

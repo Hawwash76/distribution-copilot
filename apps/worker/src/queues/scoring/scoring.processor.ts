@@ -2,10 +2,12 @@ import { z as zod } from "@distribution-copilot/shared";
 import {
   computeEngagementScore,
   computeOverallScore,
+  computeOverallRiskLevel,
   computePartialOverallScore,
   computeRecencyScore,
+  computeRiskWarnings,
 } from "@distribution-copilot/shared";
-import { createMockProvider, scoreOpportunity } from "@distribution-copilot/ai";
+import { assessRisk, createMockProvider, scoreOpportunity } from "@distribution-copilot/ai";
 import { prisma } from "@distribution-copilot/database";
 
 import { ScoringRepository } from "../../repositories/scoring.repository.js";
@@ -16,12 +18,14 @@ const payloadSchema = zod.object({
 });
 
 /**
- * Scores all `new` opportunities for a product.
+ * Scores all `new` opportunities for a product, then assesses engagement risk
+ * for each opportunity that received full AI scoring.
  *
  * - Loads all opportunities with status="new" for the given product.
- * - If a product profile exists: calls AI for intent + relevance scores.
- * - If no profile: computes engagement + recency only (partial scoring).
- * - Saves scores and advances each opportunity's status to "scored".
+ * - If a product profile exists: calls AI for intent + relevance scores, then
+ *   calls AI for four-dimension risk assessment and derives warnings + level.
+ * - If no profile: computes engagement + recency only (partial scoring, no risk).
+ * - Saves all scores and advances each opportunity's status to "scored".
  *
  * Idempotent: re-running finds no `new` opportunities and returns early.
  */
@@ -68,6 +72,27 @@ export async function runScoring(
         recencyScore,
       );
 
+      const { riskScores, model: riskModel } = await assessRisk(
+        opp.title,
+        opp.body,
+        opp.communityName,
+        opp.communityDescription,
+        profile,
+        provider,
+      );
+
+      const overallRisk = computeOverallRiskLevel(
+        riskScores.ruleViolationRisk,
+        riskScores.promotionRisk,
+        riskScores.linkRisk,
+        riskScores.moderationRisk,
+      );
+      const riskWarnings = computeRiskWarnings(
+        riskScores.ruleViolationRisk,
+        riskScores.promotionRisk,
+        riskScores.linkRisk,
+      );
+
       await repo.saveScores(opp.id, {
         intentScore: scores.intentScore,
         relevanceScore: scores.relevanceScore,
@@ -77,10 +102,18 @@ export async function runScoring(
         scoringModel: model,
         intentRationale: scores.intentRationale,
         relevanceRationale: scores.relevanceRationale,
+        ruleViolationRisk: riskScores.ruleViolationRisk,
+        promotionRisk: riskScores.promotionRisk,
+        linkRisk: riskScores.linkRisk,
+        moderationRisk: riskScores.moderationRisk,
+        overallRisk,
+        riskWarnings,
+        riskRationale: riskScores.riskRationale,
+        riskModel,
       });
 
       log(
-        `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)}`,
+        `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)} risk=${overallRisk} warnings=${riskWarnings.join(",")}`,
       );
       opportunitiesScored++;
     } else {
@@ -95,6 +128,14 @@ export async function runScoring(
         scoringModel: null,
         intentRationale: null,
         relevanceRationale: null,
+        ruleViolationRisk: null,
+        promotionRisk: null,
+        linkRisk: null,
+        moderationRisk: null,
+        overallRisk: null,
+        riskWarnings: [],
+        riskRationale: null,
+        riskModel: null,
       });
 
       log(
