@@ -13,6 +13,7 @@ import { PrismaService } from "../../common/prisma.service";
 /**
  * All Prisma access for the products feature.
  * Every query is scoped to the owning userId.
+ * Products are never hard-deleted — archive() sets archivedAt instead.
  */
 @Injectable()
 export class ProductsRepository {
@@ -20,14 +21,16 @@ export class ProductsRepository {
 
   async findAllByUser(userId: string): Promise<Product[]> {
     const rows = await this.prisma.db.product.findMany({
-      where: { userId },
+      where: { userId, isDeleted: false },
       orderBy: { createdAt: "desc" },
     });
     return rows.map(this.toProduct);
   }
 
   async findOneByUser(id: string, userId: string): Promise<Product | null> {
-    const row = await this.prisma.db.product.findFirst({ where: { id, userId } });
+    const row = await this.prisma.db.product.findFirst({
+      where: { id, userId, isDeleted: false },
+    });
     return row ? this.toProduct(row) : null;
   }
 
@@ -46,8 +49,20 @@ export class ProductsRepository {
     return this.toProduct(row);
   }
 
-  async delete(id: string, userId: string): Promise<void> {
-    await this.prisma.db.product.delete({ where: { id, userId } });
+  /** Soft-delete a product by setting isDeleted. */
+  async archive(id: string, userId: string): Promise<void> {
+    await this.prisma.db.product.update({
+      where: { id, userId },
+      data: { isDeleted: true },
+    });
+  }
+
+  /** Stamp the product with the time discovery was last triggered. */
+  async updateLastDiscovered(id: string): Promise<void> {
+    await this.prisma.db.product.update({
+      where: { id },
+      data: { lastDiscoveredAt: new Date() },
+    });
   }
 
   async findProfile(productId: string): Promise<ProductProfile | null> {
@@ -104,6 +119,8 @@ export class ProductsRepository {
     competitors: string | null;
     createdAt: Date;
     updatedAt: Date;
+    isDeleted: boolean;
+    lastDiscoveredAt: Date | null;
   }): Product {
     return {
       id: row.id,
@@ -115,6 +132,8 @@ export class ProductsRepository {
       competitors: row.competitors,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      isDeleted: row.isDeleted,
+      lastDiscoveredAt: row.lastDiscoveredAt,
     };
   }
 }

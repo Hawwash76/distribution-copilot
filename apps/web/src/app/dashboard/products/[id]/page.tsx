@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 
 import { useProduct } from "@/features/products/hooks/use-product";
-import { useDeleteProduct } from "@/features/products/hooks/use-delete-product";
+import { useArchiveProduct } from "@/features/products/hooks/use-archive-product";
 import { useProductProfile } from "@/features/products/hooks/use-product-profile";
 import { useGenerateProfile } from "@/features/products/hooks/use-generate-profile";
 import { useDiscoverOpportunities } from "@/features/opportunities/hooks/use-discover-opportunities";
@@ -19,14 +19,14 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const router = useRouter();
   const { data: product, isLoading, isError } = useProduct(id);
   const { data: profile, isLoading: isProfileLoading } = useProductProfile(id);
-  const { mutate: deleteProduct, isPending: isDeleting } = useDeleteProduct();
+  const { mutate: archiveProduct, isPending: isArchiving } = useArchiveProduct();
   const { mutate: generateProfile, isPending: isGenerating } = useGenerateProfile();
   const { mutate: discover, isPending: isDiscovering } = useDiscoverOpportunities(id);
   const [discoverQueued, setDiscoverQueued] = useState(false);
 
-  function handleDelete() {
-    if (!confirm("Delete this product? This cannot be undone.")) return;
-    deleteProduct(id, {
+  function handleArchive() {
+    if (!confirm("Archive this product? It will be hidden from your workspace.")) return;
+    archiveProduct(id, {
       onSuccess: () => router.push("/dashboard/products"),
     });
   }
@@ -38,6 +38,10 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   if (isError || !product) {
     return <p className="text-destructive text-sm">Product not found.</p>;
   }
+
+  const discoveryRecent =
+    product.lastDiscoveredAt &&
+    Date.now() - new Date(product.lastDiscoveredAt).getTime() < 5 * 60 * 1000;
 
   return (
     <div className="max-w-xl">
@@ -71,13 +75,21 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           {isGenerating ? "Generating…" : profile ? "Regenerate Profile" : "Generate Profile"}
         </button>
         <button
-          onClick={handleDelete}
-          disabled={isDeleting}
+          onClick={handleArchive}
+          disabled={isArchiving}
           className="text-destructive hover:bg-destructive/10 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
         >
-          {isDeleting ? "Deleting…" : "Delete"}
+          {isArchiving ? "Archiving…" : "Archive"}
         </button>
       </div>
+
+      {product.lastDiscoveredAt && (
+        <p className="text-muted-foreground mb-4 text-xs">
+          {discoveryRecent
+            ? "Discovery running — check the Opportunities tab."
+            : `Last discovery: ${new Date(product.lastDiscoveredAt).toLocaleString()}`}
+        </p>
+      )}
 
       <dl className="space-y-5">
         {product.description && (

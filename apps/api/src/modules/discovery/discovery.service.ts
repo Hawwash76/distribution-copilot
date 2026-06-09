@@ -28,6 +28,11 @@ export class DiscoveryService {
 
     if (!product) throw new NotFoundException(`Product ${productId} not found`);
 
+    await this.prisma.db.product.update({
+      where: { id: productId },
+      data: { lastDiscoveredAt: new Date() },
+    });
+
     const job = await this.queue.add(
       "discover",
       { productId, keywords: input.keywords, subreddits: input.subreddits },

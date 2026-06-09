@@ -39,7 +39,7 @@ export class ProductsService {
 
   async delete(id: string, userId: string): Promise<void> {
     await this.findOne(id, userId);
-    await this.products.delete(id, userId);
+    await this.products.archive(id, userId);
   }
 
   async generateProfile(id: string, userId: string): Promise<ProductProfile> {

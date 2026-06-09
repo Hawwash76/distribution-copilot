@@ -11,8 +11,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-      // Dummy implementation — replace with a real email provider (e.g. Resend) before production
+      // Dummy — replace with a real email provider (e.g. Resend) before production
       console.log(`[Password Reset] To: ${user.email} | Link: ${url}`);
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+      // Dummy — replace with a real email provider before production
+      console.log(`[Email Verification] To: ${user.email} | Link: ${url}`);
     },
   },
 });

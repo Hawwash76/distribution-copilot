@@ -98,3 +98,10 @@ export const replyDraftAiResultSchema = zod.object({
 });
 
 export type ReplyDraftAiResult = zod.infer<typeof replyDraftAiResultSchema>;
+
+/** The statuses a user can explicitly set on an opportunity. */
+export const updateOpportunityStatusSchema = zod.object({
+  status: zod.enum(["reviewed", "dismissed"]),
+});
+
+export type UpdateOpportunityStatusInput = zod.infer<typeof updateOpportunityStatusSchema>;

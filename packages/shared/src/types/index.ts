@@ -3,9 +3,14 @@
  * the single source of truth. Import types from here when no runtime
  * validation is needed.
  */
-export type { User } from "../schemas/user";
+export type { User, UpdateAccountInput, ChangePasswordInput } from "../schemas/user";
 export type { Product, CreateProductInput, UpdateProductInput } from "../schemas/product";
-export type { Opportunity, OpportunitySource } from "../schemas/opportunity";
+export type {
+  Opportunity,
+  OpportunitySource,
+  OpportunityStatus,
+  UpdateOpportunityStatusInput,
+} from "../schemas/opportunity";
 
 /** Generic, transport-agnostic paginated result wrapper. */
 export interface Paginated<T> {

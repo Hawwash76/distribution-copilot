@@ -1,8 +1,20 @@
 import { Injectable } from "@nestjs/common";
-import { type Opportunity, type RiskLevel, type RiskWarning } from "@distribution-copilot/shared";
+import {
+  type Opportunity,
+  type RiskLevel,
+  type RiskWarning,
+  type OpportunityStatus,
+  type Paginated,
+} from "@distribution-copilot/shared";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { PrismaService } from "../../common/prisma.service";
+
+export interface FindScoredOptions {
+  page?: number;
+  pageSize?: number;
+  includeDismissed?: boolean;
+}
 
 /**
  * All Prisma access for the opportunities feature.
@@ -13,23 +25,40 @@ export class OpportunitiesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Returns all scored (and reviewed) opportunities for a product,
-   * ordered by overallScore descending.
-   *
-   * Excludes `new` (not yet scored) and `dismissed` opportunities.
-   * Postgres places NULL overallScore values last on DESC — partial scores
-   * naturally rank below fully-scored ones.
+   * Returns scored (and optionally reviewed/dismissed) opportunities for a
+   * product, ordered by overallScore descending, with pagination.
    */
-  async findScoredByProduct(productId: string): Promise<Opportunity[]> {
-    const rows = await this.prisma.db.opportunity.findMany({
-      where: {
-        productId,
-        status: { in: ["scored", "reviewed"] },
-      },
-      orderBy: { overallScore: "desc" },
-      include: { community: true },
-    });
-    return rows.map((row) => this.toOpportunity(row));
+  async findScoredByProduct(
+    productId: string,
+    options: FindScoredOptions = {},
+  ): Promise<Paginated<Opportunity>> {
+    const page = options.page ?? 1;
+    const pageSize = options.pageSize ?? 20;
+    const skip = (page - 1) * pageSize;
+
+    const statuses: OpportunityStatus[] = options.includeDismissed
+      ? ["scored", "reviewed", "dismissed"]
+      : ["scored", "reviewed"];
+
+    const [rows, total] = await Promise.all([
+      this.prisma.db.opportunity.findMany({
+        where: { productId, status: { in: statuses } },
+        orderBy: { overallScore: "desc" },
+        include: { community: true },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.db.opportunity.count({
+        where: { productId, status: { in: statuses } },
+      }),
+    ]);
+
+    return {
+      items: rows.map((row) => this.toOpportunity(row)),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   /** Returns a single opportunity by id, scoped to a product. */
@@ -39,6 +68,20 @@ export class OpportunitiesRepository {
       include: { community: true },
     });
     if (!row) return null;
+    return this.toOpportunity(row);
+  }
+
+  /** Updates the status of an opportunity. Only `reviewed` and `dismissed` are user-settable. */
+  async updateStatus(
+    id: string,
+    productId: string,
+    status: OpportunityStatus,
+  ): Promise<Opportunity> {
+    const row = await this.prisma.db.opportunity.update({
+      where: { id, productId },
+      data: { status },
+      include: { community: true },
+    });
     return this.toOpportunity(row);
   }
 

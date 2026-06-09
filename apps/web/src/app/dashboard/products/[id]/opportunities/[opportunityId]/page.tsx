@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 
 import { useOpportunity } from "@/features/opportunities/hooks/use-opportunity";
+import { useUpdateOpportunityStatus } from "@/features/opportunities/hooks/use-update-opportunity-status";
 
 interface OpportunityDetailPageProps {
   params: Promise<{ id: string; opportunityId: string }>;
@@ -12,6 +13,7 @@ interface OpportunityDetailPageProps {
 export default function OpportunityDetailPage({ params }: OpportunityDetailPageProps) {
   const { id, opportunityId } = use(params);
   const { data: opp, isLoading, isError } = useOpportunity(id, opportunityId);
+  const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdateOpportunityStatus(id);
 
   if (isLoading) return <p className="text-muted-foreground text-sm">Loading…</p>;
   if (isError || !opp) return <p className="text-destructive text-sm">Opportunity not found.</p>;
@@ -23,13 +25,45 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
 
   return (
     <div className="max-w-4xl">
-      {/* Breadcrumb */}
-      <Link
-        href={`/dashboard/products/${id}/opportunities`}
-        className="text-muted-foreground hover:text-foreground mb-6 inline-block text-sm transition-colors"
-      >
-        ← Opportunities
-      </Link>
+      {/* Breadcrumb + actions */}
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <Link
+          href={`/dashboard/products/${id}/opportunities`}
+          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
+          ← Opportunities
+        </Link>
+        <div className="flex items-center gap-2">
+          {opp.status === "dismissed" ? (
+            <button
+              onClick={() => updateStatus({ opportunityId, status: "reviewed" })}
+              disabled={isUpdatingStatus}
+              className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              Restore
+            </button>
+          ) : (
+            <>
+              {opp.status !== "reviewed" && (
+                <button
+                  onClick={() => updateStatus({ opportunityId, status: "reviewed" })}
+                  disabled={isUpdatingStatus}
+                  className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {isUpdatingStatus ? "Saving…" : "Mark reviewed"}
+                </button>
+              )}
+              <button
+                onClick={() => updateStatus({ opportunityId, status: "dismissed" })}
+                disabled={isUpdatingStatus}
+                className="text-destructive hover:bg-destructive/10 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {isUpdatingStatus ? "Saving…" : "Dismiss"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
         {/* Left: Reddit post */}

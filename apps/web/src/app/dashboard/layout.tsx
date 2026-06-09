@@ -9,6 +9,7 @@ import { signOut, useSession } from "@/lib/auth-client";
 const NAV_LINKS = [
   { href: "/dashboard/products", label: "Products" },
   { href: "/dashboard/opportunities", label: "Opportunities" },
+  { href: "/dashboard/settings", label: "Settings" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

@@ -14,6 +14,8 @@ export const productSchema = zod.object({
   competitors: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  isDeleted: zod.boolean(),
+  lastDiscoveredAt: zod.coerce.date().nullable(),
 });
 
 export const createProductSchema = zod.object({
