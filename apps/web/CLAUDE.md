@@ -86,7 +86,7 @@ src/
 ## Commands
 
 ```bash
-pnpm --filter @distribution-copilot/web dev          # http://localhost:3000
+pnpm --filter @distribution-copilot/web dev          # http://localhost:3847
 pnpm --filter @distribution-copilot/web build
 pnpm --filter @distribution-copilot/web type-check
 pnpm --filter @distribution-copilot/web lint

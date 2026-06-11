@@ -96,7 +96,7 @@ File naming: `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.repository.ts`
 ## Commands
 
 ```bash
-pnpm --filter @distribution-copilot/api dev          # http://localhost:4000
+pnpm --filter @distribution-copilot/api dev          # http://localhost:3848
 pnpm --filter @distribution-copilot/api build
 pnpm --filter @distribution-copilot/api type-check
 ```

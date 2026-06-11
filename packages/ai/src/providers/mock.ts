@@ -1,5 +1,7 @@
 import {
   generatedProductProfileSchema,
+  replyDraftAiResultSchema,
+  riskAiResultSchema,
   scoringAiResultSchema,
   type z as zod,
 } from "@distribution-copilot/shared";
@@ -53,6 +55,21 @@ const MOCK_SCORING = scoringAiResultSchema.parse({
     "Post mentions coordination overhead pain points that align with the product profile.",
 });
 
+/** Static fixture for risk-assessment calls. */
+const MOCK_RISK = riskAiResultSchema.parse({
+  ruleViolationRisk: 15,
+  promotionRisk: 25,
+  linkRisk: 10,
+  moderationRisk: 10,
+  riskRationale: "Low-risk community thread; direct product mention should be avoided.",
+});
+
+/** Static fixture for reply-draft calls. */
+const MOCK_REPLY = replyDraftAiResultSchema.parse({
+  draft:
+    "Great question — I've seen a lot of teams struggle with this exact problem. The key is finding a tool that fits your existing workflow rather than forcing you to change how you work. Happy to share what's worked for others if that would be helpful.",
+});
+
 /**
  * Stub provider for local development when no real AI credentials are set.
  * Returns static fixture data without calling any external API.
@@ -67,11 +84,14 @@ export function createMockProvider(): Provider {
       _user: string,
       schema: zod.ZodType<T>,
     ): Promise<JsonCompletion<T>> {
-      // Scoring fixture — check first (more specific schema)
-      const scoringAttempt = schema.safeParse(MOCK_SCORING);
-      if (scoringAttempt.success) {
-        return { data: scoringAttempt.data, model: "mock" };
-      }
+      const scoring = schema.safeParse(MOCK_SCORING);
+      if (scoring.success) return { data: scoring.data, model: "mock" };
+
+      const risk = schema.safeParse(MOCK_RISK);
+      if (risk.success) return { data: risk.data, model: "mock" };
+
+      const reply = schema.safeParse(MOCK_REPLY);
+      if (reply.success) return { data: reply.data, model: "mock" };
 
       // Product-profile fixture — fallback
       return { data: MOCK_PROFILE as T, model: "mock" };

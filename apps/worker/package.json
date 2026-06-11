@@ -17,6 +17,7 @@
     "@distribution-copilot/database": "workspace:*",
     "@distribution-copilot/shared": "workspace:*",
     "bullmq": "^5.34.10",
+    "dotenv": "^17.4.2",
     "ioredis": "^5.4.2"
   },
   "devDependencies": {

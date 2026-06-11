@@ -5,15 +5,18 @@ export const EXTRACT_QUEUE = "extract";
 export interface ExtractJobPayload {
   url: string;
   productId: string;
-  /** Title from the SERP result — used as fallback if extraction fails. */
-  serpTitle: string;
-  /** Snippet from the SERP result — used as fallback body if extraction fails. */
-  serpSnippet: string;
+  /** Title from the discovery source — used as fallback if extraction fails. */
+  sourceTitle: string;
+  /** Snippet from the discovery source — used as fallback body if extraction fails. */
+  sourceSnippet: string;
 }
 
 /** Result written back to BullMQ on successful completion. */
 export interface ExtractJobResult {
-  discussionId: string;
-  /** True when a new Opportunity row was created; false when it already existed (idempotent retry). */
+  /** Null when the URL was rejected by a content quality gate (no Discussion or Opportunity created). */
+  discussionId: string | null;
+  /** True when a new Opportunity row was created; false when it already existed or was skipped. */
   opportunityCreated: boolean;
+  /** True when the URL failed a quality gate and was intentionally skipped. */
+  skipped: boolean;
 }

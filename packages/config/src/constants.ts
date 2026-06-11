@@ -10,6 +10,6 @@ export const DEFAULT_PAGE_SIZE = 20;
 
 /** Default local ports for each service. */
 export const DEFAULT_PORTS = {
-  web: 3000,
-  api: 4000,
+  web: 3847,
+  api: 3848,
 } as const;

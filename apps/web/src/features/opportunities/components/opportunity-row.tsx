@@ -1,8 +1,16 @@
 import Link from "next/link";
-import { type Opportunity } from "@distribution-copilot/shared";
+import { type Opportunity, type OpportunityStatus } from "@distribution-copilot/shared";
 
-/** Single row in an opportunities list, linking to the opportunity detail page. */
+import { useUpdateOpportunityStatus } from "../hooks/use-update-opportunity-status";
+import { useDeleteOpportunity } from "../hooks/use-delete-opportunity";
+
+/** Single row in an opportunities list with inline status actions. */
 export function OpportunityRow({ opp, productId }: { opp: Opportunity; productId: string }) {
+  const { mutate: updateStatus, isPending: isUpdating } = useUpdateOpportunityStatus(productId);
+  const { mutate: deleteOpp, isPending: isDeleting } = useDeleteOpportunity(productId);
+
+  const isPending = isUpdating || isDeleting;
+
   const publishedAt = opp.publishedAt ? new Date(opp.publishedAt) : null;
   const ageDays = publishedAt
     ? Math.floor((Date.now() - publishedAt.getTime()) / (1000 * 60 * 60 * 24))
@@ -17,14 +25,18 @@ export function OpportunityRow({ opp, productId }: { opp: Opportunity; productId
           : `${String(ageDays)}d ago`;
 
   return (
-    <Link
-      href={`/dashboard/products/${productId}/opportunities/${opp.id}`}
-      className="border-border hover:bg-accent/50 flex items-start gap-4 rounded-lg border p-4 transition-colors"
-    >
+    <div className="border-border flex items-start gap-4 rounded-lg border p-4">
       <ScorePill score={opp.overallScore} />
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium leading-snug">{opp.title}</p>
+      {/* Clickable content area */}
+      <Link
+        href={`/dashboard/products/${productId}/opportunities/${opp.id}`}
+        className="hover:bg-accent/30 -m-2 min-w-0 flex-1 rounded-md p-2 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium leading-snug">{opp.title}</p>
+          <StatusBadge status={opp.status} />
+        </div>
         <p className="text-muted-foreground mt-0.5 text-xs">
           {opp.communityName ?? opp.communityId ?? opp.source} · {opp.author ?? "unknown"} ·{" "}
           {ageLabel}
@@ -39,8 +51,82 @@ export function OpportunityRow({ opp, productId }: { opp: Opportunity; productId
           )}
           {opp.overallRisk !== null && <RiskBadge level={opp.overallRisk} />}
         </div>
+      </Link>
+
+      {/* Action buttons */}
+      <div className="flex shrink-0 items-center gap-1">
+        {opp.status !== "reviewed" && (
+          <ActionButton
+            disabled={isPending}
+            onClick={() => updateStatus({ opportunityId: opp.id, status: "reviewed" })}
+            title="Mark as reviewed"
+          >
+            ✓
+          </ActionButton>
+        )}
+        {opp.status !== "dismissed" && (
+          <ActionButton
+            disabled={isPending}
+            onClick={() => updateStatus({ opportunityId: opp.id, status: "dismissed" })}
+            title="Dismiss"
+          >
+            ✕
+          </ActionButton>
+        )}
+        <ActionButton
+          disabled={isPending}
+          onClick={() => deleteOpp(opp.id)}
+          title="Delete"
+          variant="destructive"
+        >
+          🗑
+        </ActionButton>
       </div>
-    </Link>
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  disabled,
+  onClick,
+  title,
+  variant = "default",
+}: {
+  children: React.ReactNode;
+  disabled: boolean;
+  onClick: () => void;
+  title: string;
+  variant?: "default" | "destructive";
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-7 w-7 items-center justify-center rounded text-xs transition-colors disabled:opacity-40 ${
+        variant === "destructive"
+          ? "hover:bg-destructive/10 text-destructive"
+          : "hover:bg-accent text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function StatusBadge({ status }: { status: OpportunityStatus }) {
+  const styles: Record<OpportunityStatus, string> = {
+    new: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    scored: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    reviewed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    dismissed: "bg-muted text-muted-foreground",
+  };
+  return (
+    <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${styles[status]}`}>
+      {status}
+    </span>
   );
 }
 
@@ -51,7 +137,6 @@ export function RiskBadge({ level }: { level: "low" | "medium" | "high" }) {
     high: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   };
   const labels = { low: "Low risk", medium: "Med risk", high: "High risk" };
-
   return (
     <span className={`rounded px-1.5 py-0.5 font-medium ${styles[level]}`}>{labels[level]}</span>
   );

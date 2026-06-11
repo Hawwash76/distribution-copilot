@@ -9,6 +9,7 @@ import { useDeleteProduct } from "@/features/products/hooks/use-delete-product";
 import { useProductProfile } from "@/features/products/hooks/use-product-profile";
 import { useGenerateProfile } from "@/features/products/hooks/use-generate-profile";
 import { useDiscoverOpportunities } from "@/features/opportunities/hooks/use-discover-opportunities";
+import { ProfileForm } from "@/features/products/components/profile-form";
 
 interface ProductDetailPageProps {
   params: Promise<{ id: string }>;
@@ -23,6 +24,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { mutate: generateProfile, isPending: isGenerating } = useGenerateProfile();
   const { mutate: discover, isPending: isDiscovering } = useDiscoverOpportunities(id);
   const [discoverQueued, setDiscoverQueued] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   function handleDelete() {
     if (!confirm("Delete this product? This cannot be undone.")) return;
@@ -64,11 +66,17 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               : "Find Opportunities"}
         </button>
         <button
+          onClick={() => setIsEditingProfile(true)}
+          className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+        >
+          {profile ? "Edit Profile" : "Set Profile Manually"}
+        </button>
+        <button
           onClick={() => generateProfile(id)}
           disabled={isGenerating}
           className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
         >
-          {isGenerating ? "Generating…" : profile ? "Regenerate Profile" : "Generate Profile"}
+          {isGenerating ? "Generating…" : profile ? "Regenerate with AI" : "Generate with AI"}
         </button>
         <button
           onClick={handleDelete}
@@ -106,14 +114,21 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         )}
       </dl>
 
-      {(isProfileLoading || isGenerating || profile) && (
+      {(isProfileLoading || isGenerating || isEditingProfile || profile) && (
         <div className="border-border mt-10 border-t pt-8">
-          <h3 className="mb-6 text-lg font-semibold tracking-tight">AI Profile</h3>
+          <h3 className="mb-6 text-lg font-semibold tracking-tight">Profile</h3>
 
-          {(isProfileLoading || isGenerating) && !profile ? (
+          {(isProfileLoading || isGenerating) && !profile && !isEditingProfile ? (
             <p className="text-muted-foreground text-sm">
               {isGenerating ? "Generating profile…" : "Loading…"}
             </p>
+          ) : isEditingProfile ? (
+            <ProfileForm
+              productId={id}
+              existing={profile ?? null}
+              onCancel={() => setIsEditingProfile(false)}
+              onSaved={() => setIsEditingProfile(false)}
+            />
           ) : profile ? (
             <div className="grid gap-6 sm:grid-cols-2">
               <ProfileSection title="Pain Points" items={profile.painPoints} />
