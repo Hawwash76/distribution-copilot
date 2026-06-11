@@ -4,7 +4,7 @@
  * later using the shared `envSchema` from `@distribution-copilot/config`.
  */
 export const configuration = () => ({
-  port: parseInt(process.env.PORT ?? "4000", 10),
+  port: parseInt(process.env.PORT ?? "3848", 10),
   databaseUrl: process.env.DATABASE_URL,
   redis: {
     host: process.env.REDIS_HOST ?? "localhost",

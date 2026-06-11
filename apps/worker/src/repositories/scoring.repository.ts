@@ -1,5 +1,6 @@
 import { type PrismaClient } from "@distribution-copilot/database";
 import {
+  type OpportunityStatus,
   type ProductProfile,
   type RiskLevel,
   type RiskWarning,
@@ -44,6 +45,8 @@ export interface OpportunityScores {
   riskModel: string | null;
   replyDraft: string | null;
   replyDraftModel: string | null;
+  /** Status to advance to: "scored" normally, "dismissed" when overallScore is below threshold. */
+  status: OpportunityStatus;
 }
 
 /**
@@ -116,7 +119,7 @@ export class ScoringRepository {
         riskModel: scores.riskModel,
         replyDraft: scores.replyDraft,
         replyDraftModel: scores.replyDraftModel,
-        status: "scored",
+        status: scores.status,
       },
     });
   }

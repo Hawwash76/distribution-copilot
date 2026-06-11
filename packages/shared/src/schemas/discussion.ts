@@ -6,7 +6,14 @@ import { z as zod } from "zod";
  * The url field is the canonical unique identifier.
  */
 
-export const discussionSourceSchema = zod.enum(["reddit", "hackernews", "web"]);
+export const discussionSourceSchema = zod.enum([
+  "reddit",
+  "hackernews",
+  "stackoverflow",
+  "lobsters",
+  "devto",
+  "web",
+]);
 export type DiscussionSource = zod.infer<typeof discussionSourceSchema>;
 
 export const discussionSchema = zod.object({

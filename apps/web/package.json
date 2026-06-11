@@ -4,9 +4,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "next dev --port 3847",
     "build": "next build",
-    "start": "next start --port 3000",
+    "start": "next start --port 3847",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "clean": "rimraf .next .turbo"

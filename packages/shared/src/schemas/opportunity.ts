@@ -15,6 +15,12 @@ export type OpportunitySource = zod.infer<typeof opportunitySourceSchema>;
 export const opportunityStatusSchema = zod.enum(["new", "scored", "reviewed", "dismissed"]);
 export type OpportunityStatus = zod.infer<typeof opportunityStatusSchema>;
 
+/** Request body for PATCH /products/:id/opportunities/:opportunityId. */
+export const updateOpportunityStatusInputSchema = zod.object({
+  status: opportunityStatusSchema,
+});
+export type UpdateOpportunityStatusInput = zod.infer<typeof updateOpportunityStatusInputSchema>;
+
 /** Specific actionable warnings generated from risk scores. */
 export const riskWarningSchema = zod.enum(["avoid_links", "avoid_cta", "avoid_product_mention"]);
 export type RiskWarning = zod.infer<typeof riskWarningSchema>;

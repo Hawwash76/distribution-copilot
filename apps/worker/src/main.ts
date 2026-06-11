@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import { startDiscoveryWorker } from "./queues/discovery/discovery.worker.js";
 import { startExtractWorker } from "./queues/extract/extract.worker.js";
 import { startScoringWorker } from "./queues/scoring/scoring.worker.js";

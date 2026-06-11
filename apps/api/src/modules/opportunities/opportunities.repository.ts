@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { type Opportunity, type RiskLevel, type RiskWarning } from "@distribution-copilot/shared";
+import {
+  type Opportunity,
+  type OpportunityStatus,
+  type RiskLevel,
+  type RiskWarning,
+} from "@distribution-copilot/shared";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { PrismaService } from "../../common/prisma.service";
@@ -15,20 +20,19 @@ export class OpportunitiesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Returns all scored (and reviewed) opportunities for a product,
-   * ordered by overallScore descending.
+   * Returns non-dismissed opportunities for a product, best first.
    *
-   * Excludes `new` (not yet scored) and `dismissed` opportunities.
-   * Postgres places NULL overallScore values last on DESC — partial scores
-   * naturally rank below fully-scored ones.
+   * Ordering: overallScore DESC NULLS LAST, then createdAt DESC so that
+   * unscored opportunities appear after all scored ones, and within the
+   * same score band the most recent win.
+   *
+   * Dismissed opportunities (auto-dismissed by the scoring job or manually
+   * dismissed by the user) are excluded from the default view.
    */
-  async findScoredByProduct(productId: string): Promise<Opportunity[]> {
+  async findAllByProduct(productId: string): Promise<Opportunity[]> {
     const rows = await this.prisma.db.opportunity.findMany({
-      where: {
-        productId,
-        status: { in: ["scored", "reviewed"] },
-      },
-      orderBy: { overallScore: "desc" },
+      where: { productId, status: { not: "dismissed" } },
+      orderBy: [{ overallScore: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
       include: {
         discussion: {
           include: { community: true },
@@ -36,6 +40,21 @@ export class OpportunitiesRepository {
       },
     });
     return rows.map((row) => this.toOpportunity(row));
+  }
+
+  /** Updates the status of a single opportunity scoped to a product. */
+  async updateStatus(id: string, productId: string, status: OpportunityStatus): Promise<void> {
+    await this.prisma.db.opportunity.updateMany({
+      where: { id, productId },
+      data: { status },
+    });
+  }
+
+  /** Permanently deletes a single opportunity scoped to a product. */
+  async deleteById(id: string, productId: string): Promise<void> {
+    await this.prisma.db.opportunity.deleteMany({
+      where: { id, productId },
+    });
   }
 
   /** Returns a single opportunity by id, scoped to a product. */

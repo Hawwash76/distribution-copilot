@@ -39,7 +39,7 @@ export function startExtractWorker(): Worker {
       "score",
       { productId },
       {
-        jobId: `scoring:${productId}`,
+        jobId: `scoring-${productId}`,
         attempts: 3,
         backoff: { type: "exponential", delay: 5_000 },
       },

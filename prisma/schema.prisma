@@ -83,10 +83,14 @@ model Verification {
 // --- Domain enums -----------------------------------------------------------
 
 /// Source platform where a discussion lives. SERP is the discovery mechanism;
-/// this enum identifies the content host (reddit, hackernews, or generic web).
+/// this enum identifies the content host (reddit, hackernews, stackoverflow,
+/// lobsters, devto, or generic web).
 enum DiscussionSource {
   reddit
   hackernews
+  stackoverflow
+  lobsters
+  devto
   web
 
   @@map("discussion_source")

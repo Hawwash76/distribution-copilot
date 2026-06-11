@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { type Opportunity } from "@distribution-copilot/shared";
+import { type Opportunity, type OpportunityStatus } from "@distribution-copilot/shared";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { OpportunitiesRepository } from "./opportunities.repository";
@@ -21,7 +21,7 @@ export class OpportunitiesService {
     const product = await this.products.findOneByUser(productId, userId);
     if (!product) throw new NotFoundException(`Product ${productId} not found`);
 
-    return this.opportunities.findScoredByProduct(productId);
+    return this.opportunities.findAllByProduct(productId);
   }
 
   async findOne(productId: string, opportunityId: string, userId: string): Promise<Opportunity> {
@@ -32,5 +32,30 @@ export class OpportunitiesService {
     if (!opportunity) throw new NotFoundException(`Opportunity ${opportunityId} not found`);
 
     return opportunity;
+  }
+
+  async updateStatus(
+    productId: string,
+    opportunityId: string,
+    userId: string,
+    status: OpportunityStatus,
+  ): Promise<void> {
+    const product = await this.products.findOneByUser(productId, userId);
+    if (!product) throw new NotFoundException(`Product ${productId} not found`);
+
+    const opportunity = await this.opportunities.findById(opportunityId, productId);
+    if (!opportunity) throw new NotFoundException(`Opportunity ${opportunityId} not found`);
+
+    await this.opportunities.updateStatus(opportunityId, productId, status);
+  }
+
+  async delete(productId: string, opportunityId: string, userId: string): Promise<void> {
+    const product = await this.products.findOneByUser(productId, userId);
+    if (!product) throw new NotFoundException(`Product ${productId} not found`);
+
+    const opportunity = await this.opportunities.findById(opportunityId, productId);
+    if (!opportunity) throw new NotFoundException(`Opportunity ${opportunityId} not found`);
+
+    await this.opportunities.deleteById(opportunityId, productId);
   }
 }

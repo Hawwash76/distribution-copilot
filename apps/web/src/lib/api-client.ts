@@ -11,7 +11,7 @@
  */
 
 /** Base URL of the API service; only non-secret config belongs in NEXT_PUBLIC_*. */
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3848";
 
 /**
  * Error thrown when the API responds with a non-2xx status. Carries the HTTP

@@ -17,14 +17,14 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? "http://localhost:3000",
+    origin: process.env.FRONTEND_URL ?? "http://localhost:3847",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   });
 
   const config = app.get(ConfigService);
-  const port = config.get<number>("port") ?? 4000;
+  const port = config.get<number>("port") ?? 3848;
 
   await app.listen(port);
   Logger.log(`API listening on http://localhost:${String(port)}`, "Bootstrap");

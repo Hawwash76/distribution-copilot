@@ -555,7 +555,7 @@ pnpm db:studio        # open Prisma Studio
 pnpm --filter @distribution-copilot/web dev   # scope a task to one workspace
 ```
 
-Local services: web → `http://localhost:3000`, api → `http://localhost:4000`
+Local services: web → `http://localhost:3847`, api → `http://localhost:3848`
 (`GET /health` → `{ "status": "ok" }`), worker → logs on start.
 
 ---

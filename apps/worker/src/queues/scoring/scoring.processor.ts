@@ -23,6 +23,14 @@ const payloadSchema = zod.object({
 });
 
 /**
+ * Opportunities scoring below this threshold are automatically dismissed
+ * rather than surfaced to the user. Keeps the list free of irrelevant noise.
+ * Partial scores (no product profile) max out around 30, so they are always
+ * auto-dismissed — the user only sees AI-scored results.
+ */
+const AUTO_DISMISS_THRESHOLD = 35;
+
+/**
  * Scores all `new` opportunities for a product, then assesses engagement risk
  * for each opportunity that received full AI scoring.
  *
@@ -126,6 +134,7 @@ export async function runScoring(
         riskModel,
         replyDraft: draft.draft,
         replyDraftModel: draftModel,
+        status: overallScore >= AUTO_DISMISS_THRESHOLD ? "scored" : "dismissed",
       });
 
       log(
@@ -154,6 +163,8 @@ export async function runScoring(
         riskModel: null,
         replyDraft: null,
         replyDraftModel: null,
+        // Partial scores (no profile) always fall below threshold — auto-dismiss.
+        status: "dismissed",
       });
 
       log(

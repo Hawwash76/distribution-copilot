@@ -12,8 +12,10 @@ import {
 } from "@nestjs/common";
 import {
   createProductSchema,
+  generatedProductProfileSchema,
   updateProductSchema,
   type CreateProductInput,
+  type GeneratedProductProfile,
   type Product,
   type ProductProfile,
   type UpdateProductInput,
@@ -61,6 +63,15 @@ export class ProductsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   delete(@Param("id") id: string, @CurrentUser() user: { id: string }): Promise<void> {
     return this.productsService.delete(id, user.id);
+  }
+
+  @Post(":id/profile")
+  saveProfile(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(generatedProductProfileSchema)) dto: GeneratedProductProfile,
+    @CurrentUser() user: { id: string },
+  ): Promise<ProductProfile> {
+    return this.productsService.saveProfileManually(id, user.id, dto);
   }
 
   @Post(":id/generate-profile")

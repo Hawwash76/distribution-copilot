@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   type CreateProductInput,
+  type GeneratedProductProfile,
   type UpdateProductInput,
   type Product,
   type ProductProfile,
@@ -40,6 +41,15 @@ export class ProductsService {
   async delete(id: string, userId: string): Promise<void> {
     await this.findOne(id, userId);
     await this.products.delete(id, userId);
+  }
+
+  async saveProfileManually(
+    id: string,
+    userId: string,
+    input: GeneratedProductProfile,
+  ): Promise<ProductProfile> {
+    await this.findOne(id, userId);
+    return this.products.saveProfile(id, input, "manual");
   }
 
   async generateProfile(id: string, userId: string): Promise<ProductProfile> {

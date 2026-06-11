@@ -13,5 +13,13 @@ export function useOpportunities(productId: string) {
     queryKey: ["opportunities", productId],
     queryFn: () => fetchOpportunities(productId),
     enabled: Boolean(productId),
+    // Poll while there are no results yet or while any opportunity is still
+    // unscored — stops automatically once scoring is done.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data || data.length === 0) return 5_000;
+      const hasUnscored = data.some((o) => o.status === "new");
+      return hasUnscored ? 5_000 : false;
+    },
   });
 }
