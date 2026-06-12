@@ -8,20 +8,42 @@ provider. **No AI vendor SDK is imported anywhere else.**
 > [`docs/architecture/ai-architecture.md`](../../docs/architecture/ai-architecture.md)
 > first.
 
-> **Status:** structure only. Prompt folders exist (`discovery/`, `scoring/`,
-> `reply-generation/`, `risk-analysis/`); `src/index.ts` is empty. No providers, prompts,
-> or logic yet.
-
 ---
 
 ## Responsibilities
 
-- Expose **capabilities** mapped to the loop: `embed`, `scoreOpportunity`, `assessRisk`,
-  `generateReplyDraft`.
+- Expose **capabilities** mapped to the core loop: `generateProductProfile`,
+  `scoreOpportunity`, `assessRisk`, `generateReplyDraft`.
 - Own the **provider abstraction** (vendor SDKs live only inside provider implementations).
 - Own **prompt templates** (versioned, separate from logic) and output validation.
 - Centralize AI cross-cutting concerns: timeouts, retries/backoff, rate limits, token/cost
   budgeting, usage logging.
+
+## Capabilities (all implemented)
+
+| Capability               | File                                       | Called by                                       | What it does                                                                                        |
+| ------------------------ | ------------------------------------------ | ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `generateProductProfile` | `capabilities/generate-product-profile.ts` | API (`products.service`)                        | Extracts painPoints, personas, keywords, competitors, useCases, valueProps from product description |
+| `scoreOpportunity`       | `capabilities/score-opportunity.ts`        | Worker (`scoring.processor`)                    | Returns intentScore (0–100), relevanceScore (0–100), signalType, and rationales                     |
+| `assessRisk`             | `capabilities/assess-risk.ts`              | Worker (`scoring.processor`)                    | Returns 4 risk dimensions (0–100 each), riskRationale                                               |
+| `generateReplyDraft`     | `capabilities/generate-reply-draft.ts`     | Worker (`scoring.processor`) + API (regenerate) | Drafts a context-aware reply respecting riskWarnings and signalType                                 |
+
+All capability functions share the signature pattern:
+
+```ts
+capability(inputs, provider: Provider): Promise<CapabilityResult>
+// Result always includes: typed output fields + model: string
+```
+
+## Providers
+
+| Provider           | File                           | Notes                                                       |
+| ------------------ | ------------------------------ | ----------------------------------------------------------- |
+| Anthropic (Claude) | `providers/create-provider.ts` | Production provider. Model configurable.                    |
+| Mock               | `providers/mock.ts`            | Returns predictable deterministic output for tests and dev. |
+
+`Provider` interface (`providers/provider.ts`) exposes `jsonCompletion(prompt, schema)`.
+All capabilities accept a `Provider` parameter — never call the SDK directly in a capability.
 
 ## Boundaries
 
@@ -34,34 +56,40 @@ returns typed outputs — **persistence is the caller's job.** It is framework-f
 
 ```
 src/
-├── index.ts                      # public API: the capability functions + result types
-├── capabilities/                 # one file per capability (embed, scoring, risk, reply)
+├── index.ts                      # public API: capability functions + provider factories + result types
+├── capabilities/                 # one file per capability; each imports its prompt + provider interface
+│   ├── generate-product-profile.ts
+│   ├── score-opportunity.ts
+│   ├── assess-risk.ts
+│   └── generate-reply-draft.ts
 ├── providers/                    # Provider interface + concrete impls (SDKs live here ONLY)
-└── prompts/  (top-level today)   # versioned prompt templates, grouped by capability
-prompts/
-├── discovery/        reply-generation/
-├── scoring/          risk-analysis/
+│   ├── provider.ts               # Provider interface + JsonCompletion type
+│   ├── create-provider.ts        # production Anthropic provider factory
+│   └── mock.ts                   # deterministic mock for tests/dev
+└── prompts/                      # versioned prompt templates, grouped by capability
+    ├── scoring/index.ts
+    └── reply-generation/index.ts
 ```
 
-A capability function = build prompt (pure) → call configured provider → **validate output
-with Zod** → return a typed result (with `rationale` + `model`).
+A capability function = build prompt (pure) → call `provider.jsonCompletion()` → **validate
+output with Zod** → return a typed result (with `model` field).
 
 ## Patterns
 
 - **Capability-oriented public surface.** Callers request a capability, never a vendor.
   Returns a typed result object — never raw provider output.
-- **Provider interface** defines low-level ops (`complete`, `embed`); concrete providers
-  implement it; selection is config-driven (route capabilities to models).
-- **Prompts are pure functions** `(typed inputs) → prompt`, stored as templates under
-  `prompts/<capability>/`, **separate from logic**, and **versioned**. Record which
-  prompt/model produced an output.
+- **Provider interface** defines low-level ops (`jsonCompletion`); concrete providers
+  implement it; selection is config-driven. Swapping or adding a provider is a change
+  inside `providers/` only — callers are unaffected.
+- **Prompts are pure functions** `(typed inputs) → prompt string`, stored under
+  `prompts/<capability>/`, **separate from capability logic**.
 - **Validate every model output with Zod** — never trust free-form text; handle parse
-  failures explicitly.
+  failures explicitly (throw, don't silently return empty).
 - **Treat untrusted content as a security boundary.** Scraped conversation text is hostile
-  input — delimit/label it and guard against prompt injection; never let it dictate the
-  instruction.
+  input — delimit/label it in prompts and guard against prompt injection; never let it
+  override instructions.
 - **Inject the provider** so capability/prompt logic is unit-testable without live calls;
-  mock at the provider boundary only.
+  use `createMockProvider()` in tests.
 
 ## Anti-patterns
 
@@ -75,16 +103,17 @@ with Zod** → return a typed result (with `rationale` + `model`).
 
 ## Implementation guidance
 
-- **New capability:** add `capabilities/<name>.ts` exporting a typed function; add its
-  prompt template(s) under `prompts/<name>/`; define input/output Zod schemas (in `shared`
-  if they're domain types); export from `index.ts`. Don't overload an existing capability.
+- **New capability:** add `capabilities/<name>.ts` exporting a typed function that accepts
+  typed inputs + a `Provider`; add its prompt template under `prompts/<name>/`; define
+  input/output Zod schemas in `shared` if they're domain types; export from `index.ts`.
+  Don't overload an existing capability.
 - **New provider:** implement the `Provider` interface in `providers/`; keep the vendor SDK
   import contained there; make it selectable via config. No caller changes.
 - **Scaling:** batch embed/score jobs; cache embeddings keyed by content hash + model;
   enforce token/cost budgets here. Start with one provider per capability — the abstraction
-  makes growth cheap; don't pre-build multi-provider routing.
-- **Where it runs:** bulk AI in the worker; only fast single-item actions in the API (with
-  a timeout). This package is callable from both.
+  makes growth cheap.
+- **Where it runs:** bulk AI in the worker; fast single-item user-triggered actions in the
+  API (with a timeout). This package is callable from both.
 
 ## Commands
 

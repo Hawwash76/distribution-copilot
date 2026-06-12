@@ -13,7 +13,7 @@ and is the only service exposing HTTP to the web app.
 
 - Expose the **REST API** (feature controllers); validate inputs and resolve the
   authenticated user per request.
-- **Authentication** (Better Auth) and **authorization** (per-user scoping).
+- **Authentication** (Better Auth) and **authorization** (per-user scoping on every query).
 - **Business logic** (services) and **database access** (repositories).
 - **Enqueue** background work to the worker (does not run heavy work itself).
 
@@ -34,6 +34,19 @@ Controller route → thin: validate (Zod) + auth guard + call one service + retu
    @distribution-copilot/database → PostgreSQL
 ```
 
+## Modules (all implemented)
+
+| Module                 | Routes                                                                                                                             | Notes                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `health`               | `GET /health`                                                                                                                      | `{ status: "ok" }` — liveness check                  |
+| `auth`                 | `POST /auth/sign-in`, `/sign-up`, `/sign-out`, `/forget-password`, `/reset-password`                                               | Delegates to Better Auth; session guard lives here   |
+| `products`             | `GET/POST /products`, `GET/PATCH/DELETE /products/:id`, `POST /products/:id/generate-profile`                                      | Full product + profile CRUD                          |
+| `opportunities`        | `GET /products/:id/opportunities`, `GET/PATCH/DELETE /products/:id/opportunities/:oid`, `POST …/engage`, `POST …/regenerate-reply` | Opportunity lifecycle + AI reply regeneration        |
+| `discovery`            | `POST /products/:id/discover`                                                                                                      | Enqueues a one-shot discovery job for a product      |
+| `stats`                | `GET /stats`                                                                                                                       | Aggregate dashboard stats for the authenticated user |
+| `monitors` _(Phase 7)_ | `GET /products/:id/monitors`, `PATCH /products/:id/monitors/:source`                                                               | Per-source monitoring toggles (not yet built)        |
+| `billing` _(Phase 8)_  | `GET /billing/status`, `POST /billing/checkout`, `POST /billing/portal`, `POST /billing/webhook`                                   | Stripe + trial management (not yet built)            |
+
 ## Folder conventions
 
 ```
@@ -50,10 +63,6 @@ src/
     └── dto/<input>.input.ts       # Zod input schemas (composed from shared)
 ```
 
-File naming: `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.repository.ts`,
-`*.input.ts` — all kebab-case. Today: `AppModule` + `ConfigModule` + `HealthModule`
-(`GET /health` → `{ status: "ok" }`); feature controllers + Better Auth are placeholders.
-
 ## Patterns
 
 - **Feature module per domain area**; register its `<Feature>Controller` in the module.
@@ -68,18 +77,19 @@ File naming: `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.repository.ts`
 - **Errors:** throw typed `HttpException` subclasses with correct status codes; a global
   exception filter maps uncaught errors and reports unexpected ones to Sentry (no PII). Use
   NestJS `Logger`.
-- **Enqueue heavy work** (discovery/scoring/embedding/batch drafting) to BullMQ; the API
-  may call `ai` directly only for fast, single-item, user-triggered actions (with timeout).
+- **Enqueue heavy work** (discovery/scoring) to BullMQ; the API may call `ai` directly only
+  for fast, single-item, user-triggered actions (e.g. regenerate-reply, generate-profile)
+  with a timeout.
 
 ## Anti-patterns
 
-- Prisma calls in a controller/non-repository service.
+- Prisma calls in a controller or non-repository location.
 - Business logic in a controller or repository.
 - Returning `@prisma/client` types across the API boundary (map to domain types).
 - Reading `process.env` outside `config`.
-- Running scraping / bulk AI / long loops inside a request.
-- Accepting `userId` from client input for ownership (derive from the session).
-- A god "manager" service; swallowing errors; logging secrets/PII.
+- Running scraping / bulk AI / long loops inside a request handler.
+- Accepting `userId` from client input for ownership (always derive from the session).
+- Swallowing errors; logging secrets/PII.
 - Any endpoint that posts/engages on a platform on the user's behalf.
 
 ## Implementation guidance
@@ -90,8 +100,8 @@ File naming: `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.repository.ts`
   new-endpoint checklist in `api-design.md` §10).
 - **DB shape change:** edit `prisma/schema.prisma` + the `shared` Zod schema together, run
   `pnpm db:generate`, update the repository (see `database.md`).
-- **Auth:** configure Better Auth in `config/auth.ts`, resolve the session in an auth guard,
-  protect routes with `@UseGuards(AuthGuard)`. Never hand-roll sessions/hashing.
+- **Auth:** configured in `config/auth.ts` via Better Auth. Session resolved in the
+  `SessionGuard` + `@CurrentUser()` decorator. Never hand-roll sessions/hashing.
 
 ## Commands
 
@@ -101,5 +111,5 @@ pnpm --filter @distribution-copilot/api build
 pnpm --filter @distribution-copilot/api type-check
 ```
 
-Key env: `PORT` (default 4000), `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
+Key env: `PORT` (default 3848), `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
 `REDIS_HOST`/`REDIS_PORT`, `SENTRY_DSN`.
