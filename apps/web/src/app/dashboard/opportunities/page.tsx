@@ -3,19 +3,46 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type OpportunityStatus } from "@distribution-copilot/shared";
+import {
+  type OpportunitySource,
+  type OpportunityStatus,
+  type SignalType,
+} from "@distribution-copilot/shared";
 
 import { useProducts } from "@/features/products/hooks/use-products";
 import { useOpportunities } from "@/features/opportunities/hooks/use-opportunities";
 import { OpportunityRow } from "@/features/opportunities/components/opportunity-row";
 
 type SortKey = "score" | "date-desc" | "date-asc";
+type SignalFilter = "all" | SignalType;
+type SourceFilter = "all" | OpportunitySource;
+
+const SIGNAL_FILTER_OPTIONS: { value: SignalFilter; label: string }[] = [
+  { value: "all", label: "All signals" },
+  { value: "RECOMMENDATION_REQUEST", label: "Recommendation" },
+  { value: "COMPETITOR_FRUSTRATION", label: "Competitor frustration" },
+  { value: "ACTIVE_EVALUATION", label: "Active evaluation" },
+  { value: "PAIN_EXPRESSION", label: "Pain expression" },
+  { value: "BUDGET_SIGNAL", label: "Budget signal" },
+  { value: "CATEGORY_RESEARCH", label: "Category research" },
+];
+
+const SOURCE_FILTER_OPTIONS: { value: SourceFilter; label: string }[] = [
+  { value: "all", label: "All sources" },
+  { value: "reddit", label: "Reddit" },
+  { value: "hackernews", label: "Hacker News" },
+  { value: "stackoverflow", label: "Stack Overflow" },
+  { value: "lobsters", label: "Lobsters" },
+  { value: "devto", label: "DEV.to" },
+  { value: "web", label: "Web" },
+];
 
 const STATUS_TABS: { value: "all" | OpportunityStatus; label: string }[] = [
   { value: "all", label: "All" },
   { value: "new", label: "New" },
   { value: "scored", label: "Scored" },
   { value: "reviewed", label: "Reviewed" },
+  { value: "engaged", label: "Engaged" },
   { value: "dismissed", label: "Dismissed" },
 ];
 
@@ -31,6 +58,8 @@ export default function OpportunitiesPage() {
   const productId = searchParams.get("productId");
 
   const [activeStatus, setActiveStatus] = useState<"all" | OpportunityStatus>("all");
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("score");
 
   const { data: products, isLoading: isLoadingProducts } = useProducts();
@@ -50,19 +79,25 @@ export default function OpportunitiesPage() {
   const selectedProduct = products?.find((p) => p.id === productId);
   const isLoading = isLoadingProducts || (Boolean(productId) && isLoadingOpportunities);
 
+  const isProcessing = Boolean(opportunities?.some((o) => o.status === "new"));
+
   const filtered = useMemo(() => {
     if (!opportunities) return [];
     const byStatus =
       activeStatus === "all"
         ? opportunities
         : opportunities.filter((o) => o.status === activeStatus);
-    return [...byStatus].sort((a, b) => {
+    const bySignal =
+      signalFilter === "all" ? byStatus : byStatus.filter((o) => o.signalType === signalFilter);
+    const bySource =
+      sourceFilter === "all" ? bySignal : bySignal.filter((o) => o.source === sourceFilter);
+    return [...bySource].sort((a, b) => {
       if (sortKey === "score") return (b.overallScore ?? -1) - (a.overallScore ?? -1);
       if (sortKey === "date-desc")
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
-  }, [opportunities, activeStatus, sortKey]);
+  }, [opportunities, activeStatus, signalFilter, sourceFilter, sortKey]);
 
   // ── No products ─────────────────────────────────────────────────────────
   if (!isLoadingProducts && products && products.length === 0) {
@@ -85,6 +120,17 @@ export default function OpportunitiesPage() {
   return (
     <div>
       <PageHeader />
+
+      {/* Processing banner — visible while the scoring pipeline is running */}
+      {isProcessing && (
+        <div className="bg-primary/5 border-primary/20 mb-6 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm">
+          <span className="bg-primary inline-block h-2 w-2 animate-pulse rounded-full" />
+          <span className="text-foreground font-medium">
+            Discovery is running — scoring opportunities in the background.
+          </span>
+          <span className="text-muted-foreground ml-auto text-xs">Refreshes automatically</span>
+        </div>
+      )}
 
       {/* Product selector */}
       <div className="mb-6">
@@ -135,18 +181,46 @@ export default function OpportunitiesPage() {
             })}
           </div>
 
-          {/* Sort select */}
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-offset-1"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            {/* Source filter */}
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+              className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-offset-1"
+            >
+              {SOURCE_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Signal type filter */}
+            <select
+              value={signalFilter}
+              onChange={(e) => setSignalFilter(e.target.value as SignalFilter)}
+              className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-offset-1"
+            >
+              {SIGNAL_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Sort select */}
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-offset-1"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 

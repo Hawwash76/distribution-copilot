@@ -18,6 +18,13 @@ export interface Provider {
   /**
    * Request a structured JSON response validated against a Zod schema.
    * Throws if the model returns unparseable JSON or output fails validation.
+   *
+   * @param model - Override the default model for this call.
    */
-  completeJson<T>(system: string, user: string, schema: z.ZodType<T>): Promise<JsonCompletion<T>>;
+  completeJson<T>(
+    system: string,
+    user: string,
+    schema: z.ZodType<T>,
+    model?: string,
+  ): Promise<JsonCompletion<T>>;
 }

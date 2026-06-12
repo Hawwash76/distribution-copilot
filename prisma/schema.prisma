@@ -100,6 +100,7 @@ enum OpportunityStatus {
   new
   scored
   reviewed
+  engaged
   dismissed
 
   @@map("opportunity_status")
@@ -111,6 +112,19 @@ enum RiskLevel {
   high
 
   @@map("risk_level")
+}
+
+/// Intent signal that best describes why a conversation is an opportunity.
+/// Classified by AI during scoring; drives reply tone and priority ordering.
+enum SignalType {
+  RECOMMENDATION_REQUEST
+  COMPETITOR_FRUSTRATION
+  ACTIVE_EVALUATION
+  PAIN_EXPRESSION
+  BUDGET_SIGNAL
+  CATEGORY_RESEARCH
+
+  @@map("signal_type")
 }
 
 // --- Application models -----------------------------------------------------
@@ -213,6 +227,10 @@ model Opportunity {
   intentRationale    String? // AI explanation of intent score
   relevanceRationale String? // AI explanation of relevance score
 
+  // Signal classification — null until AI scoring runs (requires product profile)
+  signalType      SignalType? // which type of buying signal this conversation represents
+  signalRationale String?     // one-sentence explanation of signal type choice
+
   // Risk assessment fields — null until the scoring job runs (requires product profile)
   ruleViolationRisk Int?       // 0-100: probability engaging would violate community rules
   promotionRisk     Int?       // 0-100: how overtly promotional a reply would appear
@@ -226,6 +244,10 @@ model Opportunity {
   // Reply draft fields — null until the scoring job runs (requires product profile)
   replyDraft      String? // AI-generated draft reply for the human to review and edit
   replyDraftModel String? // AI model that produced the draft
+
+  // Engagement tracking — set when the user replies to this conversation off-platform
+  engagedAt    DateTime? // when the user marked this as engaged
+  engagedReply String?   // what the user actually said in their reply
 
   @@unique([productId, discussionId])
   @@map("opportunities")

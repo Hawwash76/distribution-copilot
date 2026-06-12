@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, ConflictException } from "@nestjs/common";
 import { type Queue } from "bullmq";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
@@ -22,11 +22,24 @@ export class DiscoveryService {
 
     if (!product) throw new NotFoundException(`Product ${productId} not found`);
 
+    // Stable jobId: BullMQ skips adding if a job with this ID is already
+    // waiting/active/delayed, preventing duplicate discovery runs per product.
+    const jobId = `discovery-${productId}`;
+    const existingJob = await this.queue.getJob(jobId);
+    if (existingJob) {
+      const state = await existingJob.getState();
+      if (state === "waiting" || state === "active" || state === "delayed") {
+        throw new ConflictException(
+          "A discovery job is already running for this product. Please wait for it to finish.",
+        );
+      }
+    }
+
     const job = await this.queue.add(
       "discover",
       { productId },
       {
-        jobId: `discovery:${productId}:${Date.now()}`,
+        jobId,
         attempts: 3,
         backoff: { type: "exponential", delay: 5_000 },
       },

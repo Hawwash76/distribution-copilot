@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { type Opportunity, type OpportunityStatus } from "@distribution-copilot/shared";
+import {
+  type Opportunity,
+  type OpportunityStatus,
+  type SignalType,
+} from "@distribution-copilot/shared";
 
 import { useUpdateOpportunityStatus } from "../hooks/use-update-opportunity-status";
 import { useDeleteOpportunity } from "../hooks/use-delete-opportunity";
@@ -49,6 +53,7 @@ export function OpportunityRow({ opp, productId }: { opp: Opportunity; productId
               Intent {opp.intentScore} · Relevance {opp.relevanceScore}
             </span>
           )}
+          {opp.signalType !== null && <SignalTypeBadge type={opp.signalType} />}
           {opp.overallRisk !== null && <RiskBadge level={opp.overallRisk} />}
         </div>
       </Link>
@@ -121,6 +126,7 @@ export function StatusBadge({ status }: { status: OpportunityStatus }) {
     new: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
     scored: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
     reviewed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    engaged: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
     dismissed: "bg-muted text-muted-foreground",
   };
   return (
@@ -139,6 +145,40 @@ export function RiskBadge({ level }: { level: "low" | "medium" | "high" }) {
   const labels = { low: "Low risk", medium: "Med risk", high: "High risk" };
   return (
     <span className={`rounded px-1.5 py-0.5 font-medium ${styles[level]}`}>{labels[level]}</span>
+  );
+}
+
+const SIGNAL_TYPE_CONFIG: Record<SignalType, { label: string; className: string }> = {
+  RECOMMENDATION_REQUEST: {
+    label: "Recommendation",
+    className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  },
+  COMPETITOR_FRUSTRATION: {
+    label: "Competitor frustration",
+    className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  },
+  ACTIVE_EVALUATION: {
+    label: "Active evaluation",
+    className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  },
+  PAIN_EXPRESSION: {
+    label: "Pain expression",
+    className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  },
+  BUDGET_SIGNAL: {
+    label: "Budget signal",
+    className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+  },
+  CATEGORY_RESEARCH: {
+    label: "Category research",
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-400",
+  },
+};
+
+export function SignalTypeBadge({ type }: { type: SignalType }) {
+  const config = SIGNAL_TYPE_CONFIG[type];
+  return (
+    <span className={`rounded px-1.5 py-0.5 font-medium ${config.className}`}>{config.label}</span>
   );
 }
 

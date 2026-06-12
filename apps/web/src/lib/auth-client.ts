@@ -4,7 +4,8 @@ export const authClient = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3847",
 });
 
-export const { signIn, signOut, signUp, useSession, resetPassword } = authClient;
+export const { signIn, signOut, signUp, useSession, resetPassword, updateUser, changePassword } =
+  authClient;
 
 /**
  * Calls the Better Auth `/forget-password` endpoint to send a password-reset email.

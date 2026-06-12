@@ -4,6 +4,7 @@ import {
   type Product,
 } from "@distribution-copilot/shared";
 
+import { AI_MODELS } from "../models.js";
 import { type Provider } from "../providers/provider.js";
 import {
   PRODUCT_PROFILE_SYSTEM_PROMPT,
@@ -31,6 +32,7 @@ export async function generateProductProfile(
     PRODUCT_PROFILE_SYSTEM_PROMPT,
     buildProductProfileUserMessage(product),
     generatedProductProfileSchema,
+    AI_MODELS.PROFILE,
   );
 
   return { profile: data, model };

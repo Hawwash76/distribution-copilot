@@ -4,6 +4,7 @@ import {
   type OpportunityStatus,
   type RiskLevel,
   type RiskWarning,
+  type SignalType,
 } from "@distribution-copilot/shared";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
@@ -50,6 +51,30 @@ export class OpportunitiesRepository {
     });
   }
 
+  /**
+   * Records that the user engaged with this opportunity off-platform.
+   * Sets engagedAt, engagedReply, and advances status to "engaged".
+   */
+  async markEngaged(id: string, productId: string, reply: string, engagedAt: Date): Promise<void> {
+    await this.prisma.db.opportunity.updateMany({
+      where: { id, productId },
+      data: { status: "engaged", engagedReply: reply, engagedAt },
+    });
+  }
+
+  /** Overwrites the AI reply draft for a single opportunity. */
+  async updateReplyDraft(
+    id: string,
+    productId: string,
+    draft: string,
+    model: string,
+  ): Promise<void> {
+    await this.prisma.db.opportunity.updateMany({
+      where: { id, productId },
+      data: { replyDraft: draft, replyDraftModel: model },
+    });
+  }
+
   /** Permanently deletes a single opportunity scoped to a product. */
   async deleteById(id: string, productId: string): Promise<void> {
     await this.prisma.db.opportunity.deleteMany({
@@ -88,6 +113,8 @@ export class OpportunitiesRepository {
     scoringModel: string | null;
     intentRationale: string | null;
     relevanceRationale: string | null;
+    signalType: string | null;
+    signalRationale: string | null;
     ruleViolationRisk: number | null;
     promotionRisk: number | null;
     linkRisk: number | null;
@@ -98,6 +125,8 @@ export class OpportunitiesRepository {
     riskModel: string | null;
     replyDraft: string | null;
     replyDraftModel: string | null;
+    engagedAt: Date | null;
+    engagedReply: string | null;
     discussion: {
       source: string;
       externalId: string | null;
@@ -144,6 +173,8 @@ export class OpportunitiesRepository {
       scoringModel: row.scoringModel,
       intentRationale: row.intentRationale,
       relevanceRationale: row.relevanceRationale,
+      signalType: row.signalType as SignalType | null,
+      signalRationale: row.signalRationale,
       // Risk
       ruleViolationRisk: row.ruleViolationRisk,
       promotionRisk: row.promotionRisk,
@@ -156,6 +187,9 @@ export class OpportunitiesRepository {
       // Reply draft
       replyDraft: row.replyDraft,
       replyDraftModel: row.replyDraftModel,
+      // Engagement tracking
+      engagedAt: row.engagedAt,
+      engagedReply: row.engagedReply,
     };
   }
 }

@@ -5,6 +5,9 @@ const ALGOLIA_SEARCH_URL = "https://hn.algolia.com/api/v1/search";
 /** Minimum comments to consider a thread worth engaging with. */
 const MIN_COMMENTS = 3;
 
+/** Only surface threads created within this many months. */
+const MAX_AGE_MONTHS = 24;
+
 interface AlgoliaHit {
   objectID: string;
   title: string;
@@ -28,11 +31,12 @@ export const hnSource: DiscoverySource = {
   name: "hn",
 
   async search(query: string, limit: number): Promise<DiscoveryResult[]> {
+    const cutoffEpoch = Math.floor((Date.now() - MAX_AGE_MONTHS * 30 * 24 * 60 * 60 * 1000) / 1000);
     const params = new URLSearchParams({
       query,
       tags: "story",
       hitsPerPage: String(Math.min(limit, 100)),
-      numericFilters: `num_comments>=${String(MIN_COMMENTS)},points>=1`,
+      numericFilters: `num_comments>=${String(MIN_COMMENTS)},points>=1,created_at_i>=${String(cutoffEpoch)}`,
     });
 
     const response = await fetch(`${ALGOLIA_SEARCH_URL}?${params.toString()}`, {

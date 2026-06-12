@@ -25,5 +25,6 @@ export {
   type GenerateReplyDraftResult,
 } from "./capabilities/generate-reply-draft.js";
 
+export { createProvider } from "./providers/create-provider.js";
 export { createMockProvider } from "./providers/mock.js";
 export { type Provider, type JsonCompletion } from "./providers/provider.js";

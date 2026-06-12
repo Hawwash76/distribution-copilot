@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { createMockProvider } from "@distribution-copilot/ai";
+import { createProvider } from "@distribution-copilot/ai";
 
 import { PrismaService } from "../../common/prisma.service";
 import { ProductsController } from "./products.controller";
@@ -14,7 +14,7 @@ import { ProductsService } from "./products.service";
     PrismaService,
     {
       provide: "AI_PROVIDER",
-      useValue: createMockProvider(),
+      useValue: createProvider(),
     },
   ],
   exports: [ProductsRepository],

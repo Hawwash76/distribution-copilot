@@ -30,6 +30,9 @@ interface SeResponse {
   items?: SeItem[];
 }
 
+/** Only surface questions with activity within this many months. */
+const MAX_AGE_MONTHS = 24;
+
 /**
  * Factory producing a DiscoverySource backed by the Stack Exchange search API.
  *
@@ -50,13 +53,17 @@ function createStackExchangeSource(
       limit: number,
       log: (msg: string) => void = console.log,
     ): Promise<DiscoveryResult[]> {
+      const cutoffEpoch = Math.floor(
+        (Date.now() - MAX_AGE_MONTHS * 30 * 24 * 60 * 60 * 1000) / 1000,
+      );
       const params = new URLSearchParams({
         q: query,
         site,
-        sort: "votes",
+        sort: "activity",
         order: "desc",
         filter: "withbody",
         pagesize: String(Math.min(limit, 30)),
+        fromdate: String(cutoffEpoch),
       });
 
       const apiKey = process.env["STACK_EXCHANGE_KEY"];

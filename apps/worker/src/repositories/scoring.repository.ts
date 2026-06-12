@@ -4,6 +4,7 @@ import {
   type ProductProfile,
   type RiskLevel,
   type RiskWarning,
+  type SignalType,
 } from "@distribution-copilot/shared";
 
 /**
@@ -35,6 +36,8 @@ export interface OpportunityScores {
   scoringModel: string | null;
   intentRationale: string | null;
   relevanceRationale: string | null;
+  signalType: SignalType | null;
+  signalRationale: string | null;
   ruleViolationRisk: number | null;
   promotionRisk: number | null;
   linkRisk: number | null;
@@ -109,6 +112,8 @@ export class ScoringRepository {
         scoringModel: scores.scoringModel,
         intentRationale: scores.intentRationale,
         relevanceRationale: scores.relevanceRationale,
+        signalType: scores.signalType ?? undefined,
+        signalRationale: scores.signalRationale,
         ruleViolationRisk: scores.ruleViolationRisk,
         promotionRisk: scores.promotionRisk,
         linkRisk: scores.linkRisk,

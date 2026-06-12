@@ -9,7 +9,7 @@ import {
 } from "@distribution-copilot/shared";
 import {
   assessRisk,
-  createMockProvider,
+  createProvider,
   generateReplyDraft,
   scoreOpportunity,
 } from "@distribution-copilot/ai";
@@ -35,8 +35,9 @@ const AUTO_DISMISS_THRESHOLD = 35;
  * for each opportunity that received full AI scoring.
  *
  * - Loads all opportunities with status="new" for the given product.
- * - If a product profile exists: calls AI for intent + relevance scores, then
- *   calls AI for four-dimension risk assessment and derives warnings + level.
+ * - If a product profile exists: calls AI for intent + relevance + signal type,
+ *   then calls AI for four-dimension risk assessment and derives warnings + level,
+ *   then calls AI for a signal-type-aware reply draft.
  * - If no profile: computes engagement + recency only (partial scoring, no risk).
  * - Saves all scores and advances each opportunity's status to "scored".
  *
@@ -50,7 +51,7 @@ export async function runScoring(
   log(`[scoring] starting product=${productId}`);
 
   const repo = new ScoringRepository(prisma);
-  const provider = createMockProvider(); // TODO: replace with real provider from config
+  const provider = createProvider();
 
   const opportunities = await repo.findNewByProduct(productId);
   log(`[scoring] found ${String(opportunities.length)} opportunities with status=new`);
@@ -112,6 +113,7 @@ export async function runScoring(
         opp.communityName ?? "",
         profile,
         riskWarnings,
+        scores.signalType,
         provider,
       );
 
@@ -124,6 +126,8 @@ export async function runScoring(
         scoringModel: model,
         intentRationale: scores.intentRationale,
         relevanceRationale: scores.relevanceRationale,
+        signalType: scores.signalType,
+        signalRationale: scores.signalRationale,
         ruleViolationRisk: riskScores.ruleViolationRisk,
         promotionRisk: riskScores.promotionRisk,
         linkRisk: riskScores.linkRisk,
@@ -138,7 +142,7 @@ export async function runScoring(
       });
 
       log(
-        `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)} risk=${overallRisk}`,
+        `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} signal=${scores.signalType} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)} risk=${overallRisk}`,
       );
       opportunitiesScored++;
     } else {
@@ -153,6 +157,8 @@ export async function runScoring(
         scoringModel: null,
         intentRationale: null,
         relevanceRationale: null,
+        signalType: null,
+        signalRationale: null,
         ruleViolationRisk: null,
         promotionRisk: null,
         linkRisk: null,

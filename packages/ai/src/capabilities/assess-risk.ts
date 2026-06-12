@@ -4,6 +4,7 @@ import {
   type RiskAiResult,
 } from "@distribution-copilot/shared";
 
+import { AI_MODELS } from "../models.js";
 import { type Provider } from "../providers/provider.js";
 import { RISK_SYSTEM_PROMPT, buildRiskUserMessage } from "../prompts/risk-analysis/index.js";
 
@@ -34,6 +35,7 @@ export async function assessRisk(
     RISK_SYSTEM_PROMPT,
     buildRiskUserMessage(postTitle, postBody, communityName, communityDescription, profile),
     riskAiResultSchema,
+    AI_MODELS.SCORING,
   );
 
   return { riskScores: data, model };

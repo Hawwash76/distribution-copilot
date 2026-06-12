@@ -104,6 +104,7 @@ export const redditSource: DiscoverySource = {
     const params = new URLSearchParams({
       q: query,
       sort: "new",
+      t: "year",
       limit: String(Math.min(limit, 25)),
       type: "link", // submissions only — excludes subreddit and user results
     });

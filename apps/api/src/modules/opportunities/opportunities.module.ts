@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { createProvider } from "@distribution-copilot/ai";
 
 import { PrismaService } from "../../common/prisma.service";
 import { ProductsModule } from "../products/products.module";
@@ -9,6 +10,14 @@ import { OpportunitiesService } from "./opportunities.service";
 @Module({
   imports: [ProductsModule],
   controllers: [OpportunitiesController],
-  providers: [OpportunitiesService, OpportunitiesRepository, PrismaService],
+  providers: [
+    OpportunitiesService,
+    OpportunitiesRepository,
+    PrismaService,
+    {
+      provide: "AI_PROVIDER",
+      useValue: createProvider(),
+    },
+  ],
 })
 export class OpportunitiesModule {}

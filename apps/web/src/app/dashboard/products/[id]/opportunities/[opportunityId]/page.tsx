@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { use, useState } from "react";
+import { type SignalType } from "@distribution-copilot/shared";
 
 import { useOpportunity } from "@/features/opportunities/hooks/use-opportunity";
+import { useEngageOpportunity } from "@/features/opportunities/hooks/use-engage-opportunity";
+import { useRegenerateReply } from "@/features/opportunities/hooks/use-regenerate-reply";
 
 interface OpportunityDetailPageProps {
   params: Promise<{ id: string; opportunityId: string }>;
@@ -12,6 +15,8 @@ interface OpportunityDetailPageProps {
 export default function OpportunityDetailPage({ params }: OpportunityDetailPageProps) {
   const { id, opportunityId } = use(params);
   const { data: opp, isLoading, isError } = useOpportunity(id, opportunityId);
+  const engageMutation = useEngageOpportunity(id);
+  const regenerateMutation = useRegenerateReply(id);
 
   if (isLoading) return <p className="text-muted-foreground text-sm">Loading…</p>;
   if (isError || !opp) return <p className="text-destructive text-sm">Opportunity not found.</p>;
@@ -118,10 +123,23 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
           </div>
 
           {/* AI explanation */}
-          {(opp.intentRationale ?? opp.relevanceRationale) && (
+          {(opp.intentRationale ?? opp.relevanceRationale ?? opp.signalType) && (
             <div className="border-border rounded-lg border p-4">
               <h3 className="mb-3 text-sm font-medium">AI Explanation</h3>
               <div className="space-y-3">
+                {opp.signalType && (
+                  <div>
+                    <p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+                      Signal
+                    </p>
+                    <SignalTypeBadge type={opp.signalType} />
+                    {opp.signalRationale && (
+                      <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
+                        {opp.signalRationale}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {opp.intentRationale && (
                   <div>
                     <p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
@@ -147,8 +165,22 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
 
           {/* Draft reply */}
           {opp.replyDraft !== null && (
-            <DraftReplyCard draft={opp.replyDraft} model={opp.replyDraftModel} />
+            <DraftReplyCard
+              draft={opp.replyDraft}
+              model={opp.replyDraftModel}
+              isRegenerating={regenerateMutation.isPending}
+              onRegenerate={() => regenerateMutation.mutate({ opportunityId: opp.id })}
+            />
           )}
+
+          {/* Engagement tracking */}
+          <EngagementCard
+            opportunityId={opp.id}
+            engagedAt={opp.engagedAt}
+            engagedReply={opp.engagedReply}
+            isPending={engageMutation.isPending}
+            onSubmit={(reply) => engageMutation.mutate({ opportunityId: opp.id, reply })}
+          />
 
           {/* Risk assessment */}
           {opp.overallRisk !== null && (
@@ -273,7 +305,53 @@ function WarningPill({ warning }: { warning: string }) {
   );
 }
 
-function DraftReplyCard({ draft, model }: { draft: string; model: string | null }) {
+const SIGNAL_TYPE_CONFIG: Record<SignalType, { label: string; className: string }> = {
+  RECOMMENDATION_REQUEST: {
+    label: "Recommendation request",
+    className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  },
+  COMPETITOR_FRUSTRATION: {
+    label: "Competitor frustration",
+    className: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  },
+  ACTIVE_EVALUATION: {
+    label: "Active evaluation",
+    className: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  },
+  PAIN_EXPRESSION: {
+    label: "Pain expression",
+    className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  },
+  BUDGET_SIGNAL: {
+    label: "Budget signal",
+    className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+  },
+  CATEGORY_RESEARCH: {
+    label: "Category research",
+    className: "bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-400",
+  },
+};
+
+function SignalTypeBadge({ type }: { type: SignalType }) {
+  const config = SIGNAL_TYPE_CONFIG[type];
+  return (
+    <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${config.className}`}>
+      {config.label}
+    </span>
+  );
+}
+
+function DraftReplyCard({
+  draft,
+  model,
+  isRegenerating,
+  onRegenerate,
+}: {
+  draft: string;
+  model: string | null;
+  isRegenerating: boolean;
+  onRegenerate: () => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
@@ -285,14 +363,23 @@ function DraftReplyCard({ draft, model }: { draft: string; model: string | null 
 
   return (
     <div className="border-border rounded-lg border p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Draft Reply</h3>
-        <button
-          onClick={handleCopy}
-          className="border-border hover:bg-accent rounded px-2 py-1 text-xs font-medium transition-colors"
-        >
-          {copied ? "Copied ✓" : "Copy"}
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="border-border hover:bg-accent rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50"
+          >
+            {isRegenerating ? "Regenerating…" : "Regenerate"}
+          </button>
+          <button
+            onClick={handleCopy}
+            className="border-border hover:bg-accent rounded px-2 py-1 text-xs font-medium transition-colors"
+          >
+            {copied ? "Copied ✓" : "Copy"}
+          </button>
+        </div>
       </div>
 
       <p className="border-border bg-muted/40 mb-3 whitespace-pre-wrap rounded border p-3 text-sm leading-relaxed">
@@ -302,6 +389,70 @@ function DraftReplyCard({ draft, model }: { draft: string; model: string | null 
       <p className="text-muted-foreground text-xs">Review and edit before posting manually.</p>
 
       {model && <p className="text-muted-foreground mt-1 text-xs">Model: {model}</p>}
+    </div>
+  );
+}
+
+function EngagementCard({
+  opportunityId: _opportunityId,
+  engagedAt,
+  engagedReply,
+  isPending,
+  onSubmit,
+}: {
+  opportunityId: string;
+  engagedAt: Date | null;
+  engagedReply: string | null;
+  isPending: boolean;
+  onSubmit: (reply: string) => void;
+}) {
+  const [reply, setReply] = useState(engagedReply ?? "");
+
+  if (engagedAt) {
+    const engagedDate = new Date(engagedAt).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+    return (
+      <div className="border-border rounded-lg border p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-medium">Engagement</h3>
+          <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+            Engaged
+          </span>
+          <span className="text-muted-foreground ml-auto text-xs">{engagedDate}</span>
+        </div>
+        {engagedReply && (
+          <p className="border-border bg-muted/40 whitespace-pre-wrap rounded border p-3 text-sm leading-relaxed">
+            {engagedReply}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-border rounded-lg border p-4">
+      <h3 className="mb-3 text-sm font-medium">Mark as Engaged</h3>
+      <p className="text-muted-foreground mb-3 text-xs">
+        After you post your reply manually, record it here to track your outreach.
+      </p>
+      <textarea
+        value={reply}
+        onChange={(e) => setReply(e.target.value)}
+        rows={4}
+        placeholder="Paste the reply you posted…"
+        className="border-border bg-background text-foreground placeholder:text-muted-foreground mb-3 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1"
+      />
+      <button
+        type="button"
+        disabled={reply.trim().length === 0 || isPending}
+        onClick={() => onSubmit(reply.trim())}
+        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+      >
+        {isPending ? "Saving…" : "Mark as engaged"}
+      </button>
     </div>
   );
 }

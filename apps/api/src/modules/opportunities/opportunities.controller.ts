@@ -1,5 +1,19 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, UseGuards } from "@nestjs/common";
-import { type Opportunity, updateOpportunityStatusInputSchema } from "@distribution-copilot/shared";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
+import {
+  type Opportunity,
+  markEngagedInputSchema,
+  updateOpportunityStatusInputSchema,
+} from "@distribution-copilot/shared";
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
@@ -38,6 +52,33 @@ export class OpportunitiesController {
   ): Promise<void> {
     const { status } = updateOpportunityStatusInputSchema.parse(body);
     return this.opportunitiesService.updateStatus(id, opportunityId, user.id, status);
+  }
+
+  /** Re-generates the AI reply draft using the current product profile. */
+  @Post(":id/opportunities/:opportunityId/regenerate-reply")
+  @HttpCode(204)
+  regenerateReply(
+    @Param("id") id: string,
+    @Param("opportunityId") opportunityId: string,
+    @CurrentUser() user: { id: string },
+  ): Promise<void> {
+    return this.opportunitiesService.regenerateReply(id, opportunityId, user.id);
+  }
+
+  /**
+   * Records that the user engaged with this opportunity off-platform.
+   * The reply text they actually posted is stored for CRM tracking.
+   */
+  @Post(":id/opportunities/:opportunityId/engage")
+  @HttpCode(204)
+  async markEngaged(
+    @Param("id") id: string,
+    @Param("opportunityId") opportunityId: string,
+    @Body() body: unknown,
+    @CurrentUser() user: { id: string },
+  ): Promise<void> {
+    const { reply } = markEngagedInputSchema.parse(body);
+    return this.opportunitiesService.markEngaged(id, opportunityId, user.id, reply);
   }
 
   /** Permanently deletes an opportunity. */

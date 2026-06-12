@@ -53,6 +53,8 @@ const MOCK_SCORING = scoringAiResultSchema.parse({
     "Poster explicitly asks for tool recommendations to solve their workflow problem.",
   relevanceRationale:
     "Post mentions coordination overhead pain points that align with the product profile.",
+  signalType: "RECOMMENDATION_REQUEST",
+  signalRationale: "Poster is directly asking for tool recommendations in their workflow domain.",
 });
 
 /** Static fixture for risk-assessment calls. */
@@ -83,6 +85,7 @@ export function createMockProvider(): Provider {
       _system: string,
       _user: string,
       schema: zod.ZodType<T>,
+      _model?: string,
     ): Promise<JsonCompletion<T>> {
       const scoring = schema.safeParse(MOCK_SCORING);
       if (scoring.success) return { data: scoring.data, model: "mock" };
