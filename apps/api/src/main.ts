@@ -13,7 +13,7 @@ async function bootstrap(): Promise<void> {
   const adapter = new ExpressAdapter();
   adapter.getInstance().all("/api/auth/*splat", toNodeHandler(auth));
 
-  const app = await NestFactory.create(AppModule, adapter);
+  const app = await NestFactory.create(AppModule, adapter, { rawBody: true });
   app.enableShutdownHooks();
 
   app.enableCors({

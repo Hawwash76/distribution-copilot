@@ -32,6 +32,7 @@ model User {
   accounts      Account[]
   profile       UserProfile?
   products      Product[]
+  subscription  Subscription?
 
   @@map("users")
 }
@@ -114,6 +115,16 @@ enum RiskLevel {
   @@map("risk_level")
 }
 
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+  expired
+
+  @@map("subscription_status")
+}
+
 /// Intent signal that best describes why a conversation is an opportunity.
 /// Classified by AI during scoring; drives reply tone and priority ordering.
 enum SignalType {
@@ -144,20 +155,21 @@ model UserProfile {
 }
 
 model Product {
-  id               String          @id @default(cuid())
+  id               String           @id @default(cuid())
   userId           String
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   name             String
   website          String?
   description      String?
   audience         String?
   competitors      String?
-  isDeleted        Boolean         @default(false)
+  isDeleted        Boolean          @default(false)
   lastDiscoveredAt DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   profile          ProductProfile?
   opportunities    Opportunity[]
+  monitors         ProductMonitor[]
 
   @@map("products")
 }
@@ -253,6 +265,24 @@ model Opportunity {
   @@map("opportunities")
 }
 
+/// Tracks per-source monitoring state for a product.
+/// One row per (productId, source) pair. Enabled sources are swept every
+/// MONITOR_INTERVAL_MINUTES by the monitor worker. lastCheckedAt drives the
+/// date filter passed to each discovery source (null = backfill 30 days).
+model ProductMonitor {
+  id            String           @id @default(cuid())
+  productId     String
+  product       Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  source        DiscussionSource
+  enabled       Boolean          @default(false)
+  lastCheckedAt DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([productId, source])
+  @@map("product_monitors")
+}
+
 /// AI-generated intelligence for a product, derived from its description.
 /// Stores the 6 structured outputs produced by the generate-profile capability.
 model ProductProfile {
@@ -269,4 +299,23 @@ model ProductProfile {
   generatedAt DateTime @default(now())
 
   @@map("product_profiles")
+}
+
+/// Tracks subscription and trial state for a user.
+/// Created automatically on signup with status=trialing. Updated via Stripe webhooks.
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status               SubscriptionStatus @default(trialing)
+  planName             String             @default("trial")
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@map("subscriptions")
 }

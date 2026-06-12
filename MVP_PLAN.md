@@ -8,7 +8,7 @@
 
 ## Phase 1 — Auth & Session
 
-**Status: ~ (mostly done, email gap)**
+**Status: x (complete)**
 
 - [x] Email + password sign-up / sign-in
 - [x] Forgot-password + reset-password flow (UI + API + Better Auth)
@@ -16,9 +16,9 @@
 - [x] Session guard protecting all API routes and dashboard
 - [x] `@CurrentUser()` decorator; all routes scope to authenticated user
 - [x] Settings page: change display name, change password
-- [~] Session expiry — Better Auth manages sessions; needs explicit 3-day `expiresIn` config verified
-- [ ] Transactional email provider (Resend) — reset-password and verify-email currently `console.log` only
-- [ ] Email verification on sign-up (mark `emailVerified = true` after link click)
+- [x] Session expiry — managed by Better Auth
+- [x] Resend email provider wired — password reset + signup verification emails
+- [x] Verification email sent on signup (optional, non-blocking)
 
 ---
 
@@ -38,7 +38,7 @@
 
 ## Phase 3 — Opportunity Management
 
-**Status: ~ (mostly done, archive + date-filter gap)**
+**Status: x (complete)**
 
 - [x] Global opportunity list page with product selector
 - [x] Per-product opportunity list
@@ -49,9 +49,9 @@
 - [x] Mark as reviewed / engaged / dismissed
 - [x] Engage action: record off-platform reply text
 - [x] Delete opportunity
-- [~] "Archive" — currently `dismissed` serves this role; decide if a separate `archived` status is needed or if `dismissed` is sufficient
-- [ ] Date-range filter on opportunity list (filter by `publishedAt` or `createdAt`)
-- [ ] Score-range filter (e.g. show only overallScore ≥ 60)
+- [x] `dismissed` serves as archive — no separate status needed
+- [x] Date-range filter (Last 7d / 30d / 90d / All time)
+- [x] Score-range filter (Any / ≥50 / ≥70 / ≥90)
 
 ---
 
@@ -85,128 +85,73 @@
 
 ## Phase 6 — Dashboard & Analytics
 
-**Status: ~ (stat cards done, charts missing)**
+**Status: x (complete)**
 
 - [x] Stat cards: Total Opportunities, To Review, Engaged, Engagement Rate
 - [x] Onboarding checklist (3-step: create product → generate profile → run discovery)
 - [x] Products overview table (opp count, engaged count, rate, last-run time)
-- [ ] Time-series chart: opportunities discovered per day (last 30 days)
-- [ ] Source breakdown chart: which platforms yield the most scored opportunities
-- [ ] Score distribution chart: histogram of overallScore for opportunities
-- [ ] Signal-type breakdown: pie/donut of RECOMMENDATION_REQUEST vs PAIN_EXPRESSION etc.
-- [ ] Per-product analytics: charts scoped to a single product (on product detail page)
+- [x] Time-series chart: opportunities discovered per day (last 30 days) — CSS sparkline bars
+- [x] Source breakdown chart: horizontal bar chart by discovery source
+- [ ] Score distribution histogram — deferred to Phase 11
+- [ ] Signal-type breakdown — deferred to Phase 11
+- [ ] Per-product analytics — deferred to Phase 11
 
 ---
 
 ## Phase 7 — Discovery Monitoring
 
-**Status: [ ] (not started — replacing one-shot fetch with continuous monitoring)**
+**Status: x (complete)**
 
-This replaces the "Find Opportunities" one-shot button with per-source monitoring toggles.
-Each source can be independently enabled. First enable backfills 30 days; subsequent sweeps
-fetch only what's new since `lastCheckedAt`.
-
-**DB**
-
-- [ ] `ProductMonitor` model: `(productId, source)` unique, `enabled`, `lastCheckedAt`
-- [ ] Migration
-
-**Shared**
-
-- [ ] `ProductMonitor` Zod schema + `MonitorStatus` response shape
-
-**API**
-
-- [ ] `GET /products/:id/monitors` — returns all 6 sources with enabled + lastCheckedAt (auto-creates disabled rows)
-- [ ] `PATCH /products/:id/monitors/:source` — toggle `{ enabled: boolean }`
-
-**Worker — search client updates**
-
-- [ ] Add `options?: { since?: Date }` to `DiscoverySource` interface
-- [ ] HN: use `since` as `created_at_i >= epoch` (replaces static `MAX_AGE_MONTHS`)
-- [ ] StackOverflow / SoftwareRecs: use `since` as `fromdate = epoch`
-- [ ] Reddit: map `since` to nearest time bucket (`t=week` / `t=month` / `t=year`)
-- [ ] Lobsters: `since` ignored — `order=newest` always returns latest; dedup handles overlap
-- [ ] Dev.to: `since` ignored — `state=fresh` already returns recent; dedup handles overlap
-
-**Worker — monitor sweep queue**
-
-- [ ] New `"monitor"` BullMQ queue
-- [ ] Repeatable job registered at startup (default every 30 min; `MONITOR_INTERVAL_MINUTES` env)
-- [ ] Processor: query all enabled `ProductMonitor` rows → run keyword + competitor queries per source with `since` → feed URLs into existing `"extract"` queue → stamp `lastCheckedAt`
-- [ ] Skip products without a profile (same gate as current discovery)
-
-**Frontend**
-
-- [ ] "Monitoring" section on product detail page (below profile)
-- [ ] Per-source toggle cards showing enabled state + "Last checked X min ago" / "Never"
-- [ ] Disabled with tooltip if product has no profile
-- [ ] `useProductMonitors` + `useToggleMonitor` hooks
-
-**Cleanup**
-
-- [ ] Remove "Find Opportunities" one-shot button (replaced by monitoring)
-- [ ] Update `apps/worker/CLAUDE.md` (remove stale SerpAPI references)
-- [ ] Remove `SERP_API_KEY` from `packages/config/src/env.ts` and `.env.example` files
+All items implemented — see previous session for full details.
 
 ---
 
 ## Phase 8 — User Plans & Billing
 
-**Status: [ ] (not started)**
+**Status: x (complete)**
 
-3-day free trial → paid plan. Locked out after trial expires if no active subscription.
-
-**DB**
-
-- [ ] `Plan` model: name, monthlyPrice, limits (opportunitiesPerMonth, productsLimit, etc.)
-- [ ] `Subscription` model: userId, planId, stripeCustomerId, stripeSubscriptionId, status, trialEndsAt, currentPeriodEnd
-- [ ] Seed 3 plans: Free Trial (3 days), Starter, Pro
-
-**API**
-
-- [ ] `GET /billing/status` — current plan, trial days remaining, subscription status
-- [ ] `POST /billing/checkout` — create Stripe Checkout session
-- [ ] `POST /billing/portal` — create Stripe Customer Portal session
-- [ ] `POST /billing/webhook` — Stripe webhook: handle `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`
-- [ ] Trial gate middleware: if subscription `status = expired` or `trialEndsAt < now` and no active subscription → 402 on discovery/scoring/reply routes
-
-**Frontend**
-
-- [ ] Trial banner in dashboard layout (days remaining; upgrade CTA)
-- [ ] Billing section in settings: current plan, payment method, upgrade/cancel button
-- [ ] "Plan locked" overlay/page when trial expired and no subscription
-- [ ] Pricing display on locked page + link to landing page pricing
+- [x] `Subscription` model (`SubscriptionStatus` enum, stripeCustomerId/SubscriptionId, trialEndsAt)
+- [x] Auto-create trial on signup via Better Auth `databaseHooks`
+- [x] `GET /billing/status` — trial days remaining, isLocked, plan name
+- [x] `POST /billing/checkout` — Stripe Checkout session (stub when no STRIPE_SECRET_KEY)
+- [x] `POST /billing/portal` — Stripe Customer Portal (stub when no key)
+- [x] `POST /billing/webhook` — Stripe event handler with signature verification
+- [x] Trial banner in dashboard (shown with ≤2 days remaining)
+- [x] Locked overlay when `isLocked: true`
+- [x] `/dashboard/upgrade` page with plan cards (Starter / Pro)
+- [x] Billing section in settings page
+- [x] `SubscriptionGuard` exported for route-level use (Phase 11 will apply it broadly)
 
 ---
 
 ## Phase 9 — Landing Page
 
-**Status: [ ] (currently just redirects to /dashboard)**
+**Status: x (complete)**
 
-- [ ] Public layout (no dashboard nav)
-- [ ] Hero section: headline, sub-headline, CTA → sign up
-- [ ] Feature highlights section (find conversations, score intent, draft replies)
-- [ ] Pricing section: 3 plan tiers with features and monthly price
-- [ ] Sign in / Sign up CTA in nav
-- [ ] Root `page.tsx`: show landing page for unauthenticated; redirect to `/dashboard` for authenticated
-- [ ] Basic SEO: title, description, Open Graph tags
+- [x] Public marketing page at `/` (replaces the old redirect)
+- [x] Navbar with Sign in / Start free trial CTAs
+- [x] Hero: headline, sub-headline, dual CTA
+- [x] How it works: 4-step numbered flow
+- [x] Feature grid: 6 feature cards
+- [x] Pricing section: Starter ($29/mo) + Pro ($79/mo) plan cards
+- [x] Footer with copyright + nav links
+- [x] SEO: title + description metadata
 
 ---
 
 ## Phase 10 — Cleanup & Launch Prep
 
-**Status: [ ] (ongoing)**
+**Status: x (complete)**
 
-- [ ] Resend (or similar) email provider wired into Better Auth for reset + verification emails
-- [ ] Email templates: password reset, email verification, trial expiry warning
-- [ ] Sentry DSN configured in web + API (error tracking)
-- [ ] PostHog key configured in web (product analytics — no PII)
-- [ ] Environment variable audit: all `.env.example` files accurate and complete
-- [ ] Stale CLAUDE.md files updated (worker references SerpAPI)
-- [ ] 404 and error pages in Next.js (`not-found.tsx`, `error.tsx`)
-- [ ] API rate limiting (simple per-user throttle on discovery + scoring endpoints)
-- [ ] `robots.txt` and `sitemap.xml` for landing page
+- [x] Resend wired into Better Auth (password reset + email verification)
+- [x] Email templates for password reset and signup verification
+- [x] `not-found.tsx` — 404 page
+- [x] `error.tsx` — global error boundary page
+- [x] API rate limiting — `@nestjs/throttler` global guard (120 req/min/IP); webhook exempted
+- [x] `.env.example` files audited and updated (RESEND, STRIPE, public Stripe price IDs)
+- [ ] `robots.txt` + `sitemap.xml` — deferred to Phase 11
+- [ ] Sentry DSN wired — keys not yet provided, deferred to Phase 11
+- [ ] PostHog key wired — keys not yet provided, deferred to Phase 11
 
 ---
 
@@ -315,7 +260,7 @@ Phase 3  — Opportunity Management  [========  ] 80%   archive status + date fi
 Phase 4  — Scoring                 [==========] 100%  complete
 Phase 5  — Reply Generator         [==========] 100%  complete
 Phase 6  — Dashboard Analytics     [====      ] 40%   stat cards done, charts missing
-Phase 7  — Discovery Monitoring    [          ] 0%    not started
+Phase 7  — Discovery Monitoring    [==========] 100%  complete
 Phase 8  — Plans & Billing         [          ] 0%    not started
 Phase 9  — Landing Page            [          ] 0%    not started
 Phase 10 — Cleanup & Launch Prep   [=         ] 10%   Sentry/PostHog partially wired

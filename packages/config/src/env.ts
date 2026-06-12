@@ -12,7 +12,6 @@ export const envSchema = zod.object({
   DATABASE_URL: zod.string().url().optional(),
   REDIS_HOST: zod.string().default("localhost"),
   REDIS_PORT: zod.coerce.number().int().positive().default(6379),
-  SERP_API_KEY: zod.string().optional(),
 });
 
 export type Env = zod.infer<typeof envSchema>;

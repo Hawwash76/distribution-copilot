@@ -3,17 +3,28 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
+import { type DiscussionSource, type MonitorStatus } from "@distribution-copilot/shared";
 
 import { useProduct } from "@/features/products/hooks/use-product";
 import { useDeleteProduct } from "@/features/products/hooks/use-delete-product";
 import { useProductProfile } from "@/features/products/hooks/use-product-profile";
 import { useGenerateProfile } from "@/features/products/hooks/use-generate-profile";
-import { useDiscoverOpportunities } from "@/features/opportunities/hooks/use-discover-opportunities";
+import { useProductMonitors } from "@/features/products/hooks/use-product-monitors";
+import { useToggleMonitor } from "@/features/products/hooks/use-toggle-monitor";
 import { ProfileForm } from "@/features/products/components/profile-form";
 
 interface ProductDetailPageProps {
   params: Promise<{ id: string }>;
 }
+
+const SOURCE_LABELS: Record<DiscussionSource, string> = {
+  reddit: "Reddit",
+  hackernews: "Hacker News",
+  stackoverflow: "Stack Overflow",
+  lobsters: "Lobsters",
+  devto: "Dev.to",
+  web: "Web",
+};
 
 export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { id } = use(params);
@@ -22,8 +33,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { data: profile, isLoading: isProfileLoading } = useProductProfile(id);
   const { mutate: deleteProduct, isPending: isDeleting } = useDeleteProduct();
   const { mutate: generateProfile, isPending: isGenerating } = useGenerateProfile();
-  const { mutate: discover, isPending: isDiscovering } = useDiscoverOpportunities(id);
-  const [discoverQueued, setDiscoverQueued] = useState(false);
+  const { data: monitors, isLoading: isMonitorsLoading } = useProductMonitors(id);
+  const { mutate: toggleMonitor, isPending: isToggling } = useToggleMonitor(id);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   function handleDelete() {
@@ -50,21 +61,6 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         >
           Edit
         </Link>
-        <button
-          onClick={() => {
-            if (!profile?.keywords.length) return;
-            discover(undefined, { onSuccess: () => setDiscoverQueued(true) });
-          }}
-          disabled={isDiscovering || !profile || discoverQueued}
-          title={!profile ? "Generate an AI profile first to unlock discovery" : undefined}
-          className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
-        >
-          {isDiscovering
-            ? "Queuing…"
-            : discoverQueued
-              ? "Discovery queued ✓"
-              : "Find Opportunities"}
-        </button>
         <button
           onClick={() => setIsEditingProfile(true)}
           className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
@@ -114,6 +110,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         )}
       </dl>
 
+      {/* Profile section */}
       {(isProfileLoading || isGenerating || isEditingProfile || profile) && (
         <div className="border-border mt-10 border-t pt-8">
           <h3 className="mb-6 text-lg font-semibold tracking-tight">Profile</h3>
@@ -141,8 +138,94 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           ) : null}
         </div>
       )}
+
+      {/* Monitoring section */}
+      <div className="border-border mt-10 border-t pt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold tracking-tight">Monitoring</h3>
+          {!profile && (
+            <span className="text-muted-foreground text-xs">
+              Generate a profile to enable monitoring
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground mb-5 text-sm">
+          Toggle which platforms to monitor. When enabled, the worker searches for new discussions
+          every 30 minutes. The first run backfills the last 30 days.
+        </p>
+
+        {isMonitorsLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-muted h-12 animate-pulse rounded-md" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {(monitors ?? []).map((monitor) => (
+              <MonitorRow
+                key={monitor.source}
+                monitor={monitor}
+                disabled={!profile || isToggling}
+                onToggle={(enabled) =>
+                  toggleMonitor({ source: monitor.source as DiscussionSource, enabled })
+                }
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+function MonitorRow({
+  monitor,
+  disabled,
+  onToggle,
+}: {
+  monitor: MonitorStatus;
+  disabled: boolean;
+  onToggle: (enabled: boolean) => void;
+}) {
+  const label = SOURCE_LABELS[monitor.source as DiscussionSource] ?? monitor.source;
+
+  const lastChecked = monitor.lastCheckedAt
+    ? formatRelativeTime(new Date(monitor.lastCheckedAt))
+    : "Never";
+
+  return (
+    <div className="border-border flex items-center justify-between rounded-md border px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-muted-foreground text-xs">Last checked: {lastChecked}</p>
+      </div>
+      <button
+        onClick={() => onToggle(!monitor.enabled)}
+        disabled={disabled}
+        aria-label={monitor.enabled ? `Disable ${label}` : `Enable ${label}`}
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          monitor.enabled ? "bg-primary" : "bg-muted-foreground/30"
+        }`}
+      >
+        <span
+          className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+            monitor.enabled ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+function formatRelativeTime(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${String(diffMins)}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${String(diffHours)}h ago`;
+  return `${String(Math.floor(diffHours / 24))}d ago`;
 }
 
 function ProfileSection({ title, items }: { title: string; items: string[] }) {

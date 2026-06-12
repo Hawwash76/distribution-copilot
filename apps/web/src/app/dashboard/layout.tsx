@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 import { APP_NAME } from "@distribution-copilot/config";
 import { signOut, useSession } from "@/lib/auth-client";
+import { useBillingStatus } from "@/features/billing/hooks/use-billing-status";
 
 const NAV_LINKS = [
   { href: "/dashboard/products", label: "Products" },
@@ -16,11 +17,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { data: billing } = useBillingStatus();
 
   async function handleSignOut() {
     await signOut();
     router.push("/login");
   }
+
+  const isLocked = billing?.isLocked ?? false;
+  const showTrialBanner = billing?.status === "trialing" && (billing.daysRemaining ?? 0) <= 2;
 
   return (
     <div className="bg-background min-h-screen">
@@ -59,7 +64,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
-      <main className="container mx-auto px-4 py-8">{children}</main>
+
+      {showTrialBanner && !isLocked && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2">
+          <div className="container mx-auto flex items-center justify-between">
+            <p className="text-sm text-amber-800">
+              {billing?.daysRemaining === 0
+                ? "Your free trial expires today."
+                : `Your free trial expires in ${billing?.daysRemaining ?? 0} day${(billing?.daysRemaining ?? 0) === 1 ? "" : "s"}.`}
+            </p>
+            <Link
+              href="/dashboard/upgrade"
+              className="rounded-md bg-amber-700 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-amber-800"
+            >
+              Upgrade
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <main className="container mx-auto px-4 py-8">{isLocked ? <LockedOverlay /> : children}</main>
+    </div>
+  );
+}
+
+function LockedOverlay() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="max-w-md text-center">
+        <div className="mb-4 text-4xl">&#128274;</div>
+        <h2 className="mb-2 text-2xl font-semibold tracking-tight">Trial expired</h2>
+        <p className="text-muted-foreground mb-6 text-sm">
+          Your 3-day free trial has ended. Upgrade to continue discovering and scoring
+          opportunities.
+        </p>
+        <Link
+          href="/dashboard/upgrade"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 inline-block rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
+        >
+          View plans
+        </Link>
+      </div>
     </div>
   );
 }

@@ -13,7 +13,7 @@ export class StatsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDashboardStats(userId: string): Promise<DashboardStats> {
-    const [statusCounts, products] = await Promise.all([
+    const [statusCounts, products, timeSeries, sourceRows] = await Promise.all([
       // Opportunity counts grouped by status — only for non-deleted products
       this.prisma.db.opportunity.groupBy({
         by: ["status"],
@@ -36,9 +36,32 @@ export class StatsRepository {
         },
         orderBy: { createdAt: "desc" },
       }),
+      // Opportunities per day for the last 30 days
+      this.prisma.db.$queryRaw<{ date: string; count: bigint }[]>`
+        SELECT
+          TO_CHAR(o."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+          COUNT(*) AS count
+        FROM opportunities o
+        JOIN products p ON o."productId" = p.id
+        WHERE p."userId" = ${userId}
+          AND p."isDeleted" = false
+          AND o."createdAt" >= NOW() - INTERVAL '30 days'
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      // Opportunity count by discovery source
+      this.prisma.db.$queryRaw<{ source: string; count: bigint }[]>`
+        SELECT d."source", COUNT(*) AS count
+        FROM opportunities o
+        JOIN products p ON o."productId" = p.id
+        JOIN discussions d ON o."discussionId" = d.id
+        WHERE p."userId" = ${userId}
+          AND p."isDeleted" = false
+        GROUP BY d."source"
+        ORDER BY count DESC
+      `,
     ]);
 
-    // Flatten status counts into named fields
     const byStatus = Object.fromEntries(
       statusCounts.map((row) => [row.status, row._count._all]),
     ) as Record<string, number>;
@@ -62,6 +85,14 @@ export class StatsRepository {
       engagedCount: byStatus["engaged"] ?? 0,
       dismissedCount: byStatus["dismissed"] ?? 0,
       products: productSummaries,
+      timeSeriesData: timeSeries.map((row) => ({
+        date: row.date,
+        count: Number(row.count),
+      })),
+      sourceData: sourceRows.map((row) => ({
+        source: row.source,
+        count: Number(row.count),
+      })),
     };
   }
 }

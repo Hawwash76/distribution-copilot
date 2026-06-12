@@ -19,12 +19,15 @@
     "@nestjs/common": "^11.0.6",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.6",
+    "@nestjs/throttler": "^6.4.0",
     "@nestjs/platform-express": "^11.0.6",
     "better-auth": "^1.1.16",
     "bullmq": "^5.78.0",
     "ioredis": "^5.11.1",
     "reflect-metadata": "^0.2.2",
+    "resend": "^4.5.1",
     "rxjs": "^7.8.1",
+    "stripe": "^17.7.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

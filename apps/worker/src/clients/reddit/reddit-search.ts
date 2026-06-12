@@ -1,4 +1,8 @@
-import type { DiscoveryResult, DiscoverySource } from "../discovery-source.js";
+import type {
+  DiscoveryResult,
+  DiscoverySearchOptions,
+  DiscoverySource,
+} from "../discovery-source.js";
 
 const REDDIT_RSS_URL = "https://www.reddit.com/search.rss";
 const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
@@ -86,12 +90,28 @@ function stripHtml(s: string): string {
 }
 
 /**
+ * Maps a since date to the nearest Reddit time-bucket parameter.
+ * Reddit only supports coarse buckets; we pick the tightest one that covers
+ * the requested window so we don't miss posts near the boundary.
+ */
+function toRedditTimeBucket(since?: Date): string {
+  if (!since) return "year";
+  const ageDays = (Date.now() - since.getTime()) / (1000 * 60 * 60 * 24);
+  if (ageDays <= 7) return "week";
+  if (ageDays <= 31) return "month";
+  return "year";
+}
+
+/**
  * Discovery source backed by Reddit's public Atom search feed.
  *
  * No credentials required. Identifies posts by t3 prefix in the Atom entry ID,
  * then builds the Reddit discussion URL from the subreddit name + post base36 ID.
  * This handles both self posts (link already a Reddit URL) and link posts
  * (link points to an external URL — URL is reconstructed).
+ *
+ * When options.since is provided the nearest time bucket (week/month/year) is used;
+ * exact epoch filtering is not supported by the Reddit RSS API.
  */
 export const redditSource: DiscoverySource = {
   name: "reddit",
@@ -99,12 +119,13 @@ export const redditSource: DiscoverySource = {
   async search(
     query: string,
     limit: number,
+    options?: DiscoverySearchOptions,
     log: (msg: string) => void = console.log,
   ): Promise<DiscoveryResult[]> {
     const params = new URLSearchParams({
       q: query,
       sort: "new",
-      t: "year",
+      t: toRedditTimeBucket(options?.since),
       limit: String(Math.min(limit, 25)),
       type: "link", // submissions only — excludes subreddit and user results
     });

@@ -16,6 +16,8 @@ import { OpportunityRow } from "@/features/opportunities/components/opportunity-
 type SortKey = "score" | "date-desc" | "date-asc";
 type SignalFilter = "all" | SignalType;
 type SourceFilter = "all" | OpportunitySource;
+type DateRangeFilter = "all" | "7d" | "30d" | "90d";
+type ScoreFilter = "all" | "50" | "70" | "90";
 
 const SIGNAL_FILTER_OPTIONS: { value: SignalFilter; label: string }[] = [
   { value: "all", label: "All signals" },
@@ -52,6 +54,20 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "date-asc", label: "Oldest" },
 ];
 
+const DATE_RANGE_OPTIONS: { value: DateRangeFilter; label: string }[] = [
+  { value: "all", label: "All time" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+];
+
+const SCORE_FILTER_OPTIONS: { value: ScoreFilter; label: string }[] = [
+  { value: "all", label: "Any score" },
+  { value: "50", label: "Score ≥ 50" },
+  { value: "70", label: "Score ≥ 70" },
+  { value: "90", label: "Score ≥ 90" },
+];
+
 export default function OpportunitiesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +76,8 @@ export default function OpportunitiesPage() {
   const [activeStatus, setActiveStatus] = useState<"all" | OpportunityStatus>("all");
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [dateRange, setDateRange] = useState<DateRangeFilter>("all");
+  const [scoreFilter, setScoreFilter] = useState<ScoreFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("score");
 
   const { data: products, isLoading: isLoadingProducts } = useProducts();
@@ -83,6 +101,11 @@ export default function OpportunitiesPage() {
 
   const filtered = useMemo(() => {
     if (!opportunities) return [];
+
+    const cutoff =
+      dateRange === "all" ? null : new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000);
+    const minScore = scoreFilter === "all" ? null : parseInt(scoreFilter);
+
     const byStatus =
       activeStatus === "all"
         ? opportunities
@@ -91,13 +114,20 @@ export default function OpportunitiesPage() {
       signalFilter === "all" ? byStatus : byStatus.filter((o) => o.signalType === signalFilter);
     const bySource =
       sourceFilter === "all" ? bySignal : bySignal.filter((o) => o.source === sourceFilter);
-    return [...bySource].sort((a, b) => {
+    const byDate =
+      cutoff === null
+        ? bySource
+        : bySource.filter((o) => new Date(o.createdAt).getTime() >= cutoff.getTime());
+    const byScore =
+      minScore === null ? byDate : byDate.filter((o) => (o.overallScore ?? 0) >= minScore);
+
+    return [...byScore].sort((a, b) => {
       if (sortKey === "score") return (b.overallScore ?? -1) - (a.overallScore ?? -1);
       if (sortKey === "date-desc")
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
-  }, [opportunities, activeStatus, signalFilter, sourceFilter, sortKey]);
+  }, [opportunities, activeStatus, signalFilter, sourceFilter, dateRange, scoreFilter, sortKey]);
 
   // ── No products ─────────────────────────────────────────────────────────
   if (!isLoadingProducts && products && products.length === 0) {
@@ -202,6 +232,32 @@ export default function OpportunitiesPage() {
               className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-offset-1"
             >
               {SIGNAL_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Date range filter */}
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value as DateRangeFilter)}
+              className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-offset-1"
+            >
+              {DATE_RANGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {/* Score filter */}
+            <select
+              value={scoreFilter}
+              onChange={(e) => setScoreFilter(e.target.value as ScoreFilter)}
+              className="border-border bg-background text-foreground rounded-md border px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-offset-1"
+            >
+              {SCORE_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>

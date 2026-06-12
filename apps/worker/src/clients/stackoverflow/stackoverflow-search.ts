@@ -1,4 +1,8 @@
-import type { DiscoveryResult, DiscoverySource } from "../discovery-source.js";
+import type {
+  DiscoveryResult,
+  DiscoverySearchOptions,
+  DiscoverySource,
+} from "../discovery-source.js";
 
 const SE_API_URL = "https://api.stackexchange.com/2.3/search/advanced";
 const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
@@ -30,8 +34,8 @@ interface SeResponse {
   items?: SeItem[];
 }
 
-/** Only surface questions with activity within this many months. */
-const MAX_AGE_MONTHS = 24;
+/** Fallback cutoff when no since date is provided: 24 months back. */
+const DEFAULT_MAX_AGE_MONTHS = 24;
 
 /**
  * Factory producing a DiscoverySource backed by the Stack Exchange search API.
@@ -40,6 +44,9 @@ const MAX_AGE_MONTHS = 24;
  * (STACK_EXCHANGE_KEY env var). Supports both stackoverflow.com and
  * softwarerecs.stackexchange.com — the latter is particularly high-signal
  * because every question explicitly asks for a tool recommendation.
+ *
+ * When options.since is provided it is passed as fromdate for precise server-side
+ * filtering; otherwise falls back to the default 24-month window.
  */
 function createStackExchangeSource(
   site: "stackoverflow" | "softwarerecs",
@@ -51,11 +58,13 @@ function createStackExchangeSource(
     async search(
       query: string,
       limit: number,
+      options?: DiscoverySearchOptions,
       log: (msg: string) => void = console.log,
     ): Promise<DiscoveryResult[]> {
-      const cutoffEpoch = Math.floor(
-        (Date.now() - MAX_AGE_MONTHS * 30 * 24 * 60 * 60 * 1000) / 1000,
-      );
+      const cutoffEpoch = options?.since
+        ? Math.floor(options.since.getTime() / 1000)
+        : Math.floor((Date.now() - DEFAULT_MAX_AGE_MONTHS * 30 * 24 * 60 * 60 * 1000) / 1000);
+
       const params = new URLSearchParams({
         q: query,
         site,

@@ -121,6 +121,14 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Charts — shown once user has data */}
+      {!showOnboarding && stats && stats.totalOpportunities > 0 && (
+        <div className="mb-8 grid gap-4 md:grid-cols-2">
+          <TimeSeriesChart data={stats.timeSeriesData} />
+          <SourceChart data={stats.sourceData} />
+        </div>
+      )}
+
       {/* Products overview */}
       {!isLoading && stats && stats.products.length > 0 && (
         <div className="border-border rounded-lg border">
@@ -272,4 +280,75 @@ function StatCard({
   );
 
   return href ? <Link href={href}>{card}</Link> : card;
+}
+
+import type { TimeSeriesPoint, SourceStat } from "@distribution-copilot/shared";
+
+function TimeSeriesChart({ data }: { data: TimeSeriesPoint[] }) {
+  const max = Math.max(...data.map((d) => d.count), 1);
+
+  return (
+    <div className="border-border bg-card rounded-lg border p-5">
+      <p className="text-muted-foreground mb-4 text-xs font-medium uppercase tracking-wide">
+        Opportunities (last 30 days)
+      </p>
+      {data.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No data yet.</p>
+      ) : (
+        <div className="flex h-24 items-end gap-0.5">
+          {data.map((point) => (
+            <div
+              key={point.date}
+              className="bg-primary/70 hover:bg-primary flex-1 rounded-sm transition-colors"
+              style={{ height: `${Math.max(4, Math.round((point.count / max) * 96))}px` }}
+              title={`${point.date}: ${String(point.count)}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SourceChart({ data }: { data: SourceStat[] }) {
+  const max = Math.max(...data.map((d) => d.count), 1);
+
+  const SOURCE_LABELS: Record<string, string> = {
+    reddit: "Reddit",
+    hackernews: "Hacker News",
+    stackoverflow: "Stack Overflow",
+    lobsters: "Lobsters",
+    devto: "Dev.to",
+    web: "Web",
+  };
+
+  return (
+    <div className="border-border bg-card rounded-lg border p-5">
+      <p className="text-muted-foreground mb-4 text-xs font-medium uppercase tracking-wide">
+        By source
+      </p>
+      {data.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No data yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {data.map((item) => (
+            <div key={item.source} className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground w-28 shrink-0 text-xs">
+                {SOURCE_LABELS[item.source] ?? item.source}
+              </span>
+              <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
+                <div
+                  className="bg-primary/70 h-2 rounded-full"
+                  style={{ width: `${Math.round((item.count / max) * 100)}%` }}
+                />
+              </div>
+              <span className="text-muted-foreground w-6 shrink-0 text-right text-xs">
+                {String(item.count)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

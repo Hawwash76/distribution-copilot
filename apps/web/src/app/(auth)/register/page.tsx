@@ -14,6 +14,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,14 +29,32 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/dashboard");
+    setRegistered(true);
+    // Navigate to dashboard after a brief pause — session cookie is set
+    setTimeout(() => router.push("/dashboard"), 1_500);
+  }
+
+  if (registered) {
+    return (
+      <div className="border-border bg-card rounded-lg border p-8 text-center shadow-sm">
+        <div className="mb-4 text-4xl">&#9993;</div>
+        <h1 className="mb-2 text-xl font-semibold">Account created!</h1>
+        <p className="text-muted-foreground mb-4 text-sm">
+          We sent a verification email to <strong>{email}</strong>. You can verify it at any time —
+          your trial starts now.
+        </p>
+        <p className="text-muted-foreground text-xs">Redirecting to your dashboard…</p>
+      </div>
+    );
   }
 
   return (
     <div className="border-border bg-card rounded-lg border p-8 shadow-sm">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Get started with your workspace</p>
+        <p className="text-muted-foreground mt-1 text-sm">
+          3-day free trial — no credit card needed
+        </p>
       </div>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { changePassword, updateUser, useSession } from "@/lib/auth-client";
+import { useBillingStatus, useCreatePortal } from "@/features/billing/hooks/use-billing-status";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -17,6 +19,7 @@ export default function SettingsPage() {
       <div className="space-y-8">
         <ProfileSection currentName={session?.user?.name ?? ""} />
         <PasswordSection />
+        <BillingSection />
       </div>
     </div>
   );
@@ -117,7 +120,7 @@ function PasswordSection() {
 
   return (
     <section className="border-border border-t pt-8">
-      <h3 className="mb-4 text-base font-semibold">Password</h3>
+      <h3 className="mb-4 text-base font-semibold">Change password</h3>
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
         <div>
           <label htmlFor="current-password" className="mb-1.5 block text-sm font-medium">
@@ -177,6 +180,71 @@ function PasswordSection() {
               : "Update password"}
         </button>
       </form>
+    </section>
+  );
+}
+
+function BillingSection() {
+  const { data: billing, isLoading } = useBillingStatus();
+  const portal = useCreatePortal();
+
+  function handleManage() {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3847";
+    portal.mutate(`${base}/dashboard/settings`);
+  }
+
+  const statusLabel: Record<string, string> = {
+    trialing: "Free trial",
+    active: "Active",
+    past_due: "Payment overdue",
+    canceled: "Canceled",
+    expired: "Trial expired",
+  };
+
+  return (
+    <section className="border-border border-t pt-8">
+      <h3 className="mb-4 text-base font-semibold">Billing</h3>
+
+      {isLoading ? (
+        <p className="text-muted-foreground text-sm">Loading…</p>
+      ) : (
+        <div className="space-y-4">
+          <div className="border-border flex items-center justify-between rounded-md border p-4">
+            <div>
+              <p className="text-sm font-medium">
+                {billing ? (statusLabel[billing.status] ?? billing.status) : "—"}
+              </p>
+              {billing?.status === "trialing" && billing.daysRemaining !== null && (
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  {billing.daysRemaining} day{billing.daysRemaining === 1 ? "" : "s"} remaining
+                </p>
+              )}
+              {billing?.status === "active" && billing.currentPeriodEnd && (
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  Renews {billing.currentPeriodEnd.toLocaleDateString()}
+                </p>
+              )}
+            </div>
+
+            {billing?.status === "active" ? (
+              <button
+                onClick={handleManage}
+                disabled={portal.isPending}
+                className="border-border hover:bg-accent rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {portal.isPending ? "Loading…" : "Manage"}
+              </button>
+            ) : (
+              <Link
+                href="/dashboard/upgrade"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+              >
+                Upgrade
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

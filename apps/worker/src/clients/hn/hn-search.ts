@@ -1,12 +1,16 @@
-import type { DiscoveryResult, DiscoverySource } from "../discovery-source.js";
+import type {
+  DiscoveryResult,
+  DiscoverySearchOptions,
+  DiscoverySource,
+} from "../discovery-source.js";
 
 const ALGOLIA_SEARCH_URL = "https://hn.algolia.com/api/v1/search";
 
 /** Minimum comments to consider a thread worth engaging with. */
 const MIN_COMMENTS = 3;
 
-/** Only surface threads created within this many months. */
-const MAX_AGE_MONTHS = 24;
+/** Fallback cutoff when no since date is provided: 24 months back. */
+const DEFAULT_MAX_AGE_MONTHS = 24;
 
 interface AlgoliaHit {
   objectID: string;
@@ -30,8 +34,14 @@ interface AlgoliaSearchResponse {
 export const hnSource: DiscoverySource = {
   name: "hn",
 
-  async search(query: string, limit: number): Promise<DiscoveryResult[]> {
-    const cutoffEpoch = Math.floor((Date.now() - MAX_AGE_MONTHS * 30 * 24 * 60 * 60 * 1000) / 1000);
+  async search(
+    query: string,
+    limit: number,
+    options?: DiscoverySearchOptions,
+  ): Promise<DiscoveryResult[]> {
+    const cutoffEpoch = options?.since
+      ? Math.floor(options.since.getTime() / 1000)
+      : Math.floor((Date.now() - DEFAULT_MAX_AGE_MONTHS * 30 * 24 * 60 * 60 * 1000) / 1000);
     const params = new URLSearchParams({
       query,
       tags: "story",

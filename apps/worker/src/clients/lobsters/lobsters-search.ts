@@ -1,4 +1,8 @@
-import type { DiscoveryResult, DiscoverySource } from "../discovery-source.js";
+import type {
+  DiscoveryResult,
+  DiscoverySearchOptions,
+  DiscoverySource,
+} from "../discovery-source.js";
 
 const LOBSTERS_SEARCH_URL = "https://lobste.rs/search";
 const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
@@ -65,6 +69,10 @@ function parseLobstersRss(
  * No credentials required. Lobsters is a curated tech link aggregator with a
  * different community overlap from HN — running both in parallel increases
  * coverage without duplication (Discussion is unique on url).
+ *
+ * The Lobsters RSS API does not support date filtering. options.since is accepted
+ * but ignored — order=newest ensures we get the latest results, and the extract
+ * pipeline's upsert deduplication prevents re-processing already-seen URLs.
  */
 export const lobstersSource: DiscoverySource = {
   name: "lobsters",
@@ -72,6 +80,7 @@ export const lobstersSource: DiscoverySource = {
   async search(
     query: string,
     limit: number,
+    _options?: DiscoverySearchOptions,
     log: (msg: string) => void = console.log,
   ): Promise<DiscoveryResult[]> {
     const params = new URLSearchParams({

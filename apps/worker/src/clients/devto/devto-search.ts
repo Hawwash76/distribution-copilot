@@ -1,4 +1,8 @@
-import type { DiscoveryResult, DiscoverySource } from "../discovery-source.js";
+import type {
+  DiscoveryResult,
+  DiscoverySearchOptions,
+  DiscoverySource,
+} from "../discovery-source.js";
 
 const DEVTO_API_URL = "https://dev.to/api/articles";
 const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
@@ -43,6 +47,10 @@ function queryToTag(query: string): string {
  *
  * DEV.to articles tend to be longer-form and discussion-heavy, complementing
  * the Q&A format of Stack Overflow and HN.
+ *
+ * The DEV.to API does not support date filtering. options.since is accepted but
+ * ignored — state=fresh already returns recent articles, and the extract
+ * pipeline's upsert deduplication prevents re-processing already-seen URLs.
  */
 export const devToSource: DiscoverySource = {
   name: "devto",
@@ -50,6 +58,7 @@ export const devToSource: DiscoverySource = {
   async search(
     query: string,
     limit: number,
+    _options?: DiscoverySearchOptions,
     log: (msg: string) => void = console.log,
   ): Promise<DiscoveryResult[]> {
     const tag = queryToTag(query);
