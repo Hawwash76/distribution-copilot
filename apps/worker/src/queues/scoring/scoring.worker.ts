@@ -30,7 +30,7 @@ export function startScoringWorker(): Worker {
   });
 
   worker.on("failed", (job, err) => {
-    console.error(`[scoring] job ${job?.id} failed:`, err.message);
+    console.error(`[scoring] job ${job?.id} failed: ${err.message}`);
   });
 
   return worker;

@@ -43,6 +43,7 @@ export class ProductsController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   create(
     @Body(new ZodValidationPipe(createProductSchema)) dto: CreateProductInput,
     @CurrentUser() user: { id: string },
@@ -66,6 +67,7 @@ export class ProductsController {
   }
 
   @Post(":id/profile")
+  @HttpCode(HttpStatus.CREATED)
   saveProfile(
     @Param("id") id: string,
     @Body(new ZodValidationPipe(generatedProductProfileSchema)) dto: GeneratedProductProfile,
@@ -75,6 +77,7 @@ export class ProductsController {
   }
 
   @Post(":id/generate-profile")
+  @HttpCode(HttpStatus.CREATED)
   generateProfile(
     @Param("id") id: string,
     @CurrentUser() user: { id: string },

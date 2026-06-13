@@ -9,9 +9,9 @@ Related: [`backend-architecture.md`](backend-architecture.md) (who enqueues),
 [`ai-architecture.md`](ai-architecture.md) (the AI it calls), and
 [`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md).
 
-> **Status.** The worker is a **scaffold**: `main.ts` logs on start and references the
-> Redis connection config without opening it; `src/queues/` is empty. No queues or
-> processors exist yet. This document is the design for when they're added.
+> **Status.** The worker is **fully implemented** with five queues: `discovery`, `extract`,
+> `scoring`, `monitor`, and `scheduler`. The pipeline runs end-to-end: discovery → extract
+> → scoring, with the monitor scheduler driving periodic re-runs per product.
 
 ---
 
@@ -48,41 +48,52 @@ apps/worker/src/
 ├── main.ts                          # bootstrap: register & start all workers; graceful shutdown
 ├── config/
 │   └── redis.ts                     # RedisOptions for BullMQ (maxRetriesPerRequest: null)
+├── clients/
+│   ├── hn/                          # Hacker News (Algolia) client
+│   ├── reddit/                      # Reddit public JSON API client
+│   └── stackoverflow/               # Stack Exchange API client
+├── repositories/
+│   ├── extract.repository.ts        # Discussion + Opportunity upsert logic
+│   └── scoring.repository.ts        # Opportunity score/risk/reply persistence
 └── queues/
     ├── discovery/
-    │   ├── discovery.worker.ts      # the BullMQ Worker (wires processor + options)
-    │   ├── discovery.processor.ts   # the job logic — PURE-ish, testable in isolation
-    │   └── discovery.types.ts       # typed job payload + result (from shared where shared)
+    │   ├── discovery.worker.ts      # BullMQ Worker — concurrency 1
+    │   ├── discovery.processor.ts   # searches all enabled sources; enqueues extract jobs
+    │   └── discovery.types.ts       # DiscoveryJobPayload { productId }
+    ├── extract/
+    │   ├── extract.worker.ts        # BullMQ Worker — concurrency 3 (network I/O bound)
+    │   ├── extract.processor.ts     # fetches URL, upserts Discussion + Opportunity, enqueues scoring
+    │   └── extract.types.ts         # ExtractJobPayload { productId, url, source, … }
     ├── scoring/
-    ├── risk-analysis/
-    └── embedding/
+    │   ├── scoring.worker.ts        # BullMQ Worker — concurrency 1 (AI rate-limited)
+    │   ├── scoring.processor.ts     # AI score + risk + reply draft; saves via repository
+    │   └── scoring.types.ts         # ScoringJobPayload { productId }
+    ├── monitor/
+    │   ├── monitor.worker.ts        # BullMQ Worker — processes per-product monitor sweeps
+    │   ├── monitor.processor.ts     # checks enabled monitors; enqueues discovery jobs
+    │   └── monitor.types.ts         # MonitorJobPayload { productId }
+    └── scheduler/
+        └── scheduler.worker.ts      # repeatable job that enqueues monitor jobs on a cron
 ```
 
 Conventions: queue name is `kebab-case` (`"discovery"`); the worker file wires options
 (connection, concurrency, retries); the **processor holds the logic and is the unit of
 test**. Keep payload/result types typed (reuse `shared` where the shape is a domain type).
 
-### Current state
-
-`config/redis.ts` exports `redisConnection: RedisOptions` (host/port from env,
-`maxRetriesPerRequest: null` as BullMQ requires). `main.ts` references it and logs
-`"[worker] started — no queues registered yet"`. The worker runs via `tsx` in dev and
-compiled `node dist/main.js` in prod.
-
 ---
 
-## 3. Queues (target)
+## 3. Queues (implemented)
 
-| Queue           | Job                                                                           | Calls                             |
-| --------------- | ----------------------------------------------------------------------------- | --------------------------------- |
-| `discovery`     | Pull conversations from a source connector, store as opportunities (deduped). | source connectors, `database`     |
-| `embedding`     | Embed products/conversations; write vectors.                                  | `ai.embed`, `database`            |
-| `scoring`       | Score opportunities for relevance + intent.                                   | `ai.scoreOpportunity`, `database` |
-| `risk-analysis` | Assess community-engagement risk per opportunity.                             | `ai.assessRisk`, `database`       |
+| Queue       | Triggered by                       | Job                                                                | Calls                                                                                 |
+| ----------- | ---------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `discovery` | API (on-demand) or monitor queue   | Search all enabled sources; enqueue one extract job per URL found. | HN/Reddit/SO clients, `database`                                                      |
+| `extract`   | discovery completion (one per URL) | Fetch URL; upsert `Discussion` + `Opportunity`; enqueue scoring.   | HTTP fetch, `extract.repository`, `database`                                          |
+| `scoring`   | extract completion (per product)   | AI score + risk assess + reply draft for all unscored opps.        | `ai.scoreOpportunity`, `ai.assessRisk`, `ai.generateReplyDraft`, `scoring.repository` |
+| `monitor`   | scheduler (cron)                   | For each product, check enabled monitors; enqueue discovery jobs.  | `database`                                                                            |
+| `scheduler` | BullMQ repeatable (cron)           | Enqueues monitor sweep jobs on a configurable schedule.            | BullMQ                                                                                |
 
-Jobs are chained by enqueuing the next stage on completion (discover → embed → score →
-assess), or driven by opportunity `status` transitions (see
-[`domain-model.md`](domain-model.md) §4). Keep each queue single-purpose.
+The pipeline chains on completion: discovery → extract → scoring. The scheduler drives
+periodic re-runs. Each stage is single-purpose and idempotent.
 
 ---
 
@@ -113,9 +124,10 @@ assess), or driven by opportunity `status` transitions (see
 Discovery talks to platforms through a **common source-connector interface** so adding a
 platform is additive:
 
-- Each connector (Reddit first; X, Hacker News later) implements the same shape: fetch
-  recent/relevant items for a community, return normalized records mapped to the
-  `Opportunity`/`Community` domain shape and the `OpportunitySource` enum.
+- Implemented connectors: **Reddit** (public JSON API), **Hacker News** (Algolia search),
+  **Stack Overflow** (Stack Exchange API), **Lobsters** and **Dev.to** (public APIs).
+  Each implements the same shape: fetch recent/relevant items for a query, return
+  normalized records mapped to the `Discussion`/`Opportunity` domain shape.
 - Scoring, risk, and reply logic depend on the **normalized domain shape**, not on any
   platform's API — so adding `x`/`hackernews` is a new connector + an enum member, ideally
   without touching downstream stages (scalability requirement).
@@ -131,8 +143,8 @@ platform is additive:
   job completes (poll/refetch).
 - **Recurring:** BullMQ **repeatable jobs** drive periodic discovery/refresh. Keep
   schedules conservative to respect platform limits.
-- **Pipelined:** a completed stage enqueues the next (discover → embed → score → assess),
-  or a small scheduler advances opportunities by `status`.
+- **Pipelined:** a completed stage enqueues the next (discover → extract → score). The
+  scheduler drives monitor sweeps; monitors enqueue discovery jobs.
 
 ---
 

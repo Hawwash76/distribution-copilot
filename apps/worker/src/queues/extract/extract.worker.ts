@@ -42,6 +42,8 @@ export function startExtractWorker(): Worker {
         jobId: `scoring-${productId}`,
         attempts: 3,
         backoff: { type: "exponential", delay: 5_000 },
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 50 },
       },
     );
   });

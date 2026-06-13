@@ -30,6 +30,20 @@ export const sourceStatSchema = zod.object({
 });
 export type SourceStat = zod.infer<typeof sourceStatSchema>;
 
+/** One bucket of the score distribution histogram (e.g. "0–20", "20–40"). */
+export const scoreDistributionPointSchema = zod.object({
+  bucket: zod.string(),
+  count: zod.number().int(),
+});
+export type ScoreDistributionPoint = zod.infer<typeof scoreDistributionPointSchema>;
+
+/** Per-signal-type opportunity count for the signal-type breakdown chart. */
+export const signalStatSchema = zod.object({
+  signal: zod.string(),
+  count: zod.number().int(),
+});
+export type SignalStat = zod.infer<typeof signalStatSchema>;
+
 export const dashboardStatsSchema = zod.object({
   totalOpportunities: zod.number().int(),
   newCount: zod.number().int(),
@@ -42,5 +56,9 @@ export const dashboardStatsSchema = zod.object({
   timeSeriesData: zod.array(timeSeriesPointSchema),
   /** Opportunity counts grouped by discovery source. */
   sourceData: zod.array(sourceStatSchema),
+  /** Overall-score histogram bucketed in 20-point bands. */
+  scoreDistribution: zod.array(scoreDistributionPointSchema),
+  /** Opportunity counts grouped by AI-classified signal type. */
+  signalData: zod.array(signalStatSchema),
 });
 export type DashboardStats = zod.infer<typeof dashboardStatsSchema>;

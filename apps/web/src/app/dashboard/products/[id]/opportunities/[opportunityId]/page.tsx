@@ -220,22 +220,28 @@ export default function OpportunityDetailPage({ params }: OpportunityDetailPageP
   );
 }
 
+const SCORE_GOOD = 80;
+const SCORE_FAIR = 60;
+const SCORE_POOR = 40;
+const RISK_HIGH = 70;
+const RISK_MEDIUM = 40;
+
 function overallColor(score: number | null): string {
   if (score === null) return "text-muted-foreground";
-  if (score >= 80) return "text-green-600 dark:text-green-400";
-  if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
-  if (score >= 40) return "text-orange-600 dark:text-orange-400";
+  if (score >= SCORE_GOOD) return "text-green-600 dark:text-green-400";
+  if (score >= SCORE_FAIR) return "text-yellow-600 dark:text-yellow-400";
+  if (score >= SCORE_POOR) return "text-orange-600 dark:text-orange-400";
   return "text-red-600 dark:text-red-400";
 }
 
 function ScoreBar({ label, score }: { label: string; score: number | null }) {
   const pct = score ?? 0;
   const barColor =
-    pct >= 80
+    pct >= SCORE_GOOD
       ? "bg-green-500"
-      : pct >= 60
+      : pct >= SCORE_FAIR
         ? "bg-yellow-500"
-        : pct >= 40
+        : pct >= SCORE_POOR
           ? "bg-orange-500"
           : "bg-red-500";
 
@@ -258,7 +264,8 @@ function ScoreBar({ label, score }: { label: string; score: number | null }) {
 /** Like ScoreBar but colors are inverted — higher score means higher risk. */
 function RiskBar({ label, score }: { label: string; score: number | null }) {
   const pct = score ?? 0;
-  const barColor = pct >= 70 ? "bg-red-500" : pct >= 40 ? "bg-yellow-500" : "bg-green-500";
+  const barColor =
+    pct >= RISK_HIGH ? "bg-red-500" : pct >= RISK_MEDIUM ? "bg-yellow-500" : "bg-green-500";
 
   return (
     <div>
@@ -354,10 +361,12 @@ function DraftReplyCard({
 }) {
   const [copied, setCopied] = useState(false);
 
+  const CLIPBOARD_FEEDBACK_MS = 2_000;
+
   function handleCopy() {
     void navigator.clipboard.writeText(draft).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), CLIPBOARD_FEEDBACK_MS);
     });
   }
 

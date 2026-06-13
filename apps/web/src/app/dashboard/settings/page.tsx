@@ -25,6 +25,8 @@ export default function SettingsPage() {
   );
 }
 
+const FORM_FEEDBACK_MS = 2_000;
+
 function ProfileSection({ currentName }: { currentName: string }) {
   const [name, setName] = useState(currentName);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -44,7 +46,7 @@ function ProfileSection({ currentName }: { currentName: string }) {
     }
 
     setStatus("saved");
-    setTimeout(() => setStatus("idle"), 2_000);
+    setTimeout(() => setStatus("idle"), FORM_FEEDBACK_MS);
   }
 
   return (
@@ -115,7 +117,7 @@ function PasswordSection() {
     setNext("");
     setConfirm("");
     setStatus("saved");
-    setTimeout(() => setStatus("idle"), 2_000);
+    setTimeout(() => setStatus("idle"), FORM_FEEDBACK_MS);
   }
 
   return (

@@ -65,35 +65,30 @@ self-contained and wires its own router, service(s), and repository:
 
 ```
 apps/api/src/
-├── main.ts                         # bootstrap: create app, shutdown hooks, listen
-├── app.module.ts                   # root module; imports feature modules + ConfigModule
+├── main.ts                         # bootstrap: ExpressAdapter, Better Auth handler, CORS, listen
+├── app.module.ts                   # root module; imports all feature modules + ConfigModule
 ├── config/
 │   ├── configuration.ts            # typed config factory for @nestjs/config
-│   └── auth.ts                     # Better Auth setup
-├── common/                         # cross-cutting: guards, filters, interceptors, decorators
+│   └── auth.ts                     # Better Auth setup (Prisma adapter, email hooks, databaseHooks)
+├── common/                         # cross-cutting: guards, filters, pipes, decorators
+│   ├── prisma.service.ts           # Injectable Prisma wrapper (singleton)
+│   ├── session.guard.ts            # SessionGuard — protects all non-public routes
+│   ├── session.decorator.ts        # @CurrentUser() — extracts authenticated user from request
+│   └── zod-validation.pipe.ts      # ZodValidationPipe — used by controllers for body/query/param
 └── modules/
-    ├── health/                     # exists: liveness probe
-    │   ├── health.module.ts
-    │   └── health.controller.ts
-    └── opportunity/                # target shape of a real feature
-        ├── opportunity.module.ts
-        ├── opportunity.controller.ts  # REST endpoints (the public surface)
-        ├── opportunity.service.ts     # business logic
-        ├── opportunity.repository.ts
-        └── dto/
-            └── list-opportunities.input.ts   # Zod input schema (composed from shared)
+    ├── health/                     # GET /health → { status: "ok" }
+    ├── auth/                       # Better Auth handler proxied at /api/auth/*
+    ├── products/                   # CRUD for products + AI profile generation
+    ├── opportunities/              # Opportunity list, detail, status, engage, delete, regenerate-reply
+    ├── discovery/                  # POST /products/:id/discover — enqueues discovery job
+    ├── stats/                      # GET /stats/dashboard — aggregated dashboard analytics
+    ├── billing/                    # Stripe checkout, portal, webhook; subscription status
+    └── monitors/                   # Per-product source monitor toggle + status list
 ```
 
 New features add a module here and register their controller (see
 [`api-design.md`](api-design.md) §2). Cross-cutting concerns (auth guards, exception
 filters) live in `common/`, not duplicated per feature.
-
-### Current state
-
-`AppModule` imports `ConfigModule.forRoot({ isGlobal: true, load: [configuration] })` and
-the `HealthModule`. `main.ts` creates the app, enables shutdown hooks, reads the port from
-config (default 4000), and listens. `GET /health` returns `{ status: "ok" }`. Feature
-controllers and the Better Auth handler are not wired up yet (see `config/auth.ts`).
 
 ---
 

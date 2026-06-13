@@ -92,9 +92,9 @@
 - [x] Products overview table (opp count, engaged count, rate, last-run time)
 - [x] Time-series chart: opportunities discovered per day (last 30 days) — CSS sparkline bars
 - [x] Source breakdown chart: horizontal bar chart by discovery source
-- [ ] Score distribution histogram — deferred to Phase 11
-- [ ] Signal-type breakdown — deferred to Phase 11
-- [ ] Per-product analytics — deferred to Phase 11
+- [x] Score distribution histogram — 5-bucket bar chart on dashboard
+- [x] Signal-type breakdown — horizontal bar chart on dashboard
+- [x] Per-product analytics — stats row (opportunities / engaged / rate) on product detail page
 
 ---
 
@@ -149,7 +149,7 @@ All items implemented — see previous session for full details.
 - [x] `error.tsx` — global error boundary page
 - [x] API rate limiting — `@nestjs/throttler` global guard (120 req/min/IP); webhook exempted
 - [x] `.env.example` files audited and updated (RESEND, STRIPE, public Stripe price IDs)
-- [ ] `robots.txt` + `sitemap.xml` — deferred to Phase 11
+- [x] `robots.txt` + `sitemap.xml` — Next.js metadata API (`app/robots.ts`, `app/sitemap.ts`)
 - [ ] Sentry DSN wired — keys not yet provided, deferred to Phase 11
 - [ ] PostHog key wired — keys not yet provided, deferred to Phase 11
 
@@ -173,7 +173,7 @@ dead code, tighten consistency, and ensure every piece earns its place.
 
 **Dead code removal**
 
-- [ ] Remove `SERP_API_KEY` from `packages/config/src/env.ts` and all `.env.example` files
+- [x] Remove `SERP_API_KEY` — was never added; codebase is clean
 - [ ] Remove any leftover placeholder/scaffold comments ("TODO(context): replace this")
 - [ ] Remove unused imports across all packages (run `pnpm lint --fix`)
 - [ ] Identify and remove any orphaned utility files or types that nothing imports
@@ -214,15 +214,15 @@ dead code, tighten consistency, and ensure every piece earns its place.
 
 **Performance**
 
-- [ ] Add database indexes for common query patterns (e.g. `opportunities.status + productId`)
+- [x] Add database indexes for common query patterns — `opportunities(productId, status)`, `opportunities(productId, createdAt)`, `products(userId, isDeleted)`, `product_monitors(productId)`
 - [ ] Review Prisma `include` depth — avoid fetching more than needed per endpoint
 - [ ] Ensure worker processors don't hold open DB connections unnecessarily
 
 **Security**
 
-- [ ] Audit all API endpoints for missing auth guards
-- [ ] Verify all user-scoped queries have `userId` filter (no cross-user data leaks possible)
-- [ ] Review Stripe webhook signature verification (Phase 8 dependency)
+- [x] Audit all API endpoints for missing auth guards — all 22 protected routes verified
+- [x] Verify all user-scoped queries have `userId` filter — all repositories confirmed clean
+- [x] Review Stripe webhook signature verification — verified in BillingService
 - [ ] Ensure no secrets appear in logs (Sentry breadcrumbs, structured log fields)
 
 **Test coverage (targeted)**
@@ -254,15 +254,15 @@ Phases are sequenced by dependency and MVP-blocking priority:
 ## Current Progress
 
 ```
-Phase 1  — Auth & Session          [=======   ] 75%   email provider + verification pending
+Phase 1  — Auth & Session          [==========] 100%  complete
 Phase 2  — Product Management      [==========] 100%  complete
-Phase 3  — Opportunity Management  [========  ] 80%   archive status + date filter pending
+Phase 3  — Opportunity Management  [==========] 100%  complete
 Phase 4  — Scoring                 [==========] 100%  complete
 Phase 5  — Reply Generator         [==========] 100%  complete
-Phase 6  — Dashboard Analytics     [====      ] 40%   stat cards done, charts missing
+Phase 6  — Dashboard Analytics     [==========] 100%  complete
 Phase 7  — Discovery Monitoring    [==========] 100%  complete
-Phase 8  — Plans & Billing         [          ] 0%    not started
-Phase 9  — Landing Page            [          ] 0%    not started
-Phase 10 — Cleanup & Launch Prep   [=         ] 10%   Sentry/PostHog partially wired
-Phase 11 — Mass Cleanup & Quality  [          ] 0%    post-feature pass
+Phase 8  — Plans & Billing         [==========] 100%  complete
+Phase 9  — Landing Page            [==========] 100%  complete
+Phase 10 — Cleanup & Launch Prep   [========  ] 80%   Sentry/PostHog pending (need keys)
+Phase 11 — Mass Cleanup & Quality  [===       ] 30%   indexes+security done; tests + docs remaining
 ```

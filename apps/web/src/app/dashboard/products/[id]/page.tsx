@@ -11,6 +11,7 @@ import { useProductProfile } from "@/features/products/hooks/use-product-profile
 import { useGenerateProfile } from "@/features/products/hooks/use-generate-profile";
 import { useProductMonitors } from "@/features/products/hooks/use-product-monitors";
 import { useToggleMonitor } from "@/features/products/hooks/use-toggle-monitor";
+import { useDashboardStats } from "@/features/stats/hooks/use-dashboard-stats";
 import { ProfileForm } from "@/features/products/components/profile-form";
 
 interface ProductDetailPageProps {
@@ -35,6 +36,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { mutate: generateProfile, isPending: isGenerating } = useGenerateProfile();
   const { data: monitors, isLoading: isMonitorsLoading } = useProductMonitors(id);
   const { mutate: toggleMonitor, isPending: isToggling } = useToggleMonitor(id);
+  const { data: stats } = useDashboardStats();
+  const productStats = stats?.products.find((p) => p.id === id) ?? null;
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   function handleDelete() {
@@ -82,6 +85,28 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           {isDeleting ? "Deleting…" : "Delete"}
         </button>
       </div>
+
+      {/* Per-product quick stats */}
+      {productStats && (
+        <div className="border-border mb-6 grid grid-cols-3 gap-0 overflow-hidden rounded-lg border text-center">
+          <div className="border-border border-r px-4 py-3">
+            <p className="text-2xl font-bold">{String(productStats.opportunityCount)}</p>
+            <p className="text-muted-foreground mt-0.5 text-xs">Opportunities</p>
+          </div>
+          <div className="border-border border-r px-4 py-3">
+            <p className="text-2xl font-bold">{String(productStats.engagedCount)}</p>
+            <p className="text-muted-foreground mt-0.5 text-xs">Engaged</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-2xl font-bold">
+              {productStats.opportunityCount > 0
+                ? `${String(Math.round((productStats.engagedCount / productStats.opportunityCount) * 100))}%`
+                : "—"}
+            </p>
+            <p className="text-muted-foreground mt-0.5 text-xs">Eng. rate</p>
+          </div>
+        </div>
+      )}
 
       <dl className="space-y-5">
         {product.description && (

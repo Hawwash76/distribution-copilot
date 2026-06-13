@@ -14,9 +14,13 @@ import type { Request } from "express";
 import {
   type BillingStatus,
   type CheckoutUrl,
+  type CreateCheckoutInput,
+  type CreatePortalInput,
   createCheckoutInputSchema,
   createPortalInputSchema,
 } from "@distribution-copilot/shared";
+
+import { ZodValidationPipe } from "../../common/zod-validation.pipe";
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
@@ -43,16 +47,20 @@ export class BillingController {
 
   @Post("checkout")
   @UseGuards(SessionGuard)
-  createCheckout(@Body() body: unknown, @CurrentUser() user: { id: string }): Promise<CheckoutUrl> {
-    const { priceId, successUrl, cancelUrl } = createCheckoutInputSchema.parse(body);
-    return this.service.createCheckout(user.id, priceId, successUrl, cancelUrl);
+  createCheckout(
+    @Body(new ZodValidationPipe(createCheckoutInputSchema)) dto: CreateCheckoutInput,
+    @CurrentUser() user: { id: string },
+  ): Promise<CheckoutUrl> {
+    return this.service.createCheckout(user.id, dto.priceId, dto.successUrl, dto.cancelUrl);
   }
 
   @Post("portal")
   @UseGuards(SessionGuard)
-  createPortal(@Body() body: unknown, @CurrentUser() user: { id: string }): Promise<CheckoutUrl> {
-    const { returnUrl } = createPortalInputSchema.parse(body);
-    return this.service.createPortal(user.id, returnUrl);
+  createPortal(
+    @Body(new ZodValidationPipe(createPortalInputSchema)) dto: CreatePortalInput,
+    @CurrentUser() user: { id: string },
+  ): Promise<CheckoutUrl> {
+    return this.service.createPortal(user.id, dto.returnUrl);
   }
 
   /** Stripe sends webhooks here. No session guard — verified by Stripe signature. */

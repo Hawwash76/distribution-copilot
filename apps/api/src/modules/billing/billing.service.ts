@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common";
-import { type ConfigService } from "@nestjs/config";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
+import { ConfigService } from "@nestjs/config";
 import { type BillingStatus, type CheckoutUrl } from "@distribution-copilot/shared";
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import

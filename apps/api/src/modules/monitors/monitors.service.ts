@@ -7,7 +7,8 @@ import {
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
 import { PrismaService } from "../../common/prisma.service";
-import { type MonitorsRepository } from "./monitors.repository";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
+import { MonitorsRepository } from "./monitors.repository";
 
 /**
  * Business logic for the monitors feature.

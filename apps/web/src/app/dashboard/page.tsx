@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { useDashboardStats } from "@/features/stats/hooks/use-dashboard-stats";
 
+const ENGAGEMENT_RATE_GOOD = 30;
+const ENGAGEMENT_RATE_FAIR = 10;
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { data: stats, isLoading } = useDashboardStats();
@@ -110,9 +113,9 @@ export default function DashboardPage() {
             placeholder="—"
             accent={
               engagementRate !== null
-                ? engagementRate >= 30
+                ? engagementRate >= ENGAGEMENT_RATE_GOOD
                   ? "emerald"
-                  : engagementRate >= 10
+                  : engagementRate >= ENGAGEMENT_RATE_FAIR
                     ? "yellow"
                     : "default"
                 : "default"
@@ -126,6 +129,8 @@ export default function DashboardPage() {
         <div className="mb-8 grid gap-4 md:grid-cols-2">
           <TimeSeriesChart data={stats.timeSeriesData} />
           <SourceChart data={stats.sourceData} />
+          <ScoreDistributionChart data={stats.scoreDistribution} />
+          <SignalChart data={stats.signalData} />
         </div>
       )}
 
@@ -282,7 +287,12 @@ function StatCard({
   return href ? <Link href={href}>{card}</Link> : card;
 }
 
-import type { TimeSeriesPoint, SourceStat } from "@distribution-copilot/shared";
+import type {
+  TimeSeriesPoint,
+  SourceStat,
+  ScoreDistributionPoint,
+  SignalStat,
+} from "@distribution-copilot/shared";
 
 function TimeSeriesChart({ data }: { data: TimeSeriesPoint[] }) {
   const max = Math.max(...data.map((d) => d.count), 1);
@@ -339,6 +349,79 @@ function SourceChart({ data }: { data: SourceStat[] }) {
               <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
                 <div
                   className="bg-primary/70 h-2 rounded-full"
+                  style={{ width: `${Math.round((item.count / max) * 100)}%` }}
+                />
+              </div>
+              <span className="text-muted-foreground w-6 shrink-0 text-right text-xs">
+                {String(item.count)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreDistributionChart({ data }: { data: ScoreDistributionPoint[] }) {
+  const max = Math.max(...data.map((d) => d.count), 1);
+
+  return (
+    <div className="border-border bg-card rounded-lg border p-5">
+      <p className="text-muted-foreground mb-4 text-xs font-medium uppercase tracking-wide">
+        Score distribution
+      </p>
+      {data.every((d) => d.count === 0) ? (
+        <p className="text-muted-foreground text-sm">No scored opportunities yet.</p>
+      ) : (
+        <div className="flex h-24 items-end gap-1">
+          {data.map((point) => (
+            <div key={point.bucket} className="flex flex-1 flex-col items-center gap-1">
+              <div
+                className="bg-primary/70 hover:bg-primary w-full rounded-sm transition-colors"
+                style={{ height: `${Math.max(4, Math.round((point.count / max) * 80))}px` }}
+                title={`${point.bucket}: ${String(point.count)}`}
+              />
+              <span className="text-muted-foreground text-center text-xs leading-none">
+                {point.bucket}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SignalChart({ data }: { data: SignalStat[] }) {
+  const max = Math.max(...data.map((d) => d.count), 1);
+
+  const SIGNAL_LABELS: Record<string, string> = {
+    RECOMMENDATION_REQUEST: "Rec. Request",
+    COMPETITOR_FRUSTRATION: "Comp. Frustration",
+    ACTIVE_EVALUATION: "Active Eval.",
+    PAIN_EXPRESSION: "Pain Expression",
+    BUDGET_SIGNAL: "Budget Signal",
+    CATEGORY_RESEARCH: "Category Research",
+  };
+
+  return (
+    <div className="border-border bg-card rounded-lg border p-5">
+      <p className="text-muted-foreground mb-4 text-xs font-medium uppercase tracking-wide">
+        By signal type
+      </p>
+      {data.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No signals classified yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {data.map((item) => (
+            <div key={item.signal} className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground w-32 shrink-0 truncate text-xs">
+                {SIGNAL_LABELS[item.signal] ?? item.signal}
+              </span>
+              <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
+                <div
+                  className="h-2 rounded-full bg-emerald-500/70"
                   style={{ width: `${Math.round((item.count / max) * 100)}%` }}
                 />
               </div>

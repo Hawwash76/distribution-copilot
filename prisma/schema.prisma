@@ -171,6 +171,7 @@ model Product {
   opportunities    Opportunity[]
   monitors         ProductMonitor[]
 
+  @@index([userId, isDeleted])
   @@map("products")
 }
 
@@ -262,6 +263,8 @@ model Opportunity {
   engagedReply String?   // what the user actually said in their reply
 
   @@unique([productId, discussionId])
+  @@index([productId, status])
+  @@index([productId, createdAt(sort: Desc)])
   @@map("opportunities")
 }
 
@@ -280,6 +283,7 @@ model ProductMonitor {
   updatedAt     DateTime         @updatedAt
 
   @@unique([productId, source])
+  @@index([productId])
   @@map("product_monitors")
 }
 

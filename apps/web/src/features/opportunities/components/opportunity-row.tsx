@@ -182,6 +182,10 @@ export function SignalTypeBadge({ type }: { type: SignalType }) {
   );
 }
 
+const SCORE_GOOD = 80;
+const SCORE_FAIR = 60;
+const SCORE_POOR = 40;
+
 export function ScorePill({ score }: { score: number | null }) {
   if (score === null) {
     return (
@@ -192,11 +196,11 @@ export function ScorePill({ score }: { score: number | null }) {
   }
 
   const colorClass =
-    score >= 80
+    score >= SCORE_GOOD
       ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-      : score >= 60
+      : score >= SCORE_FAIR
         ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-        : score >= 40
+        : score >= SCORE_POOR
           ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
           : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
 
