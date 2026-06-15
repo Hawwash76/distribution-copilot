@@ -5,7 +5,25 @@ import type {
 } from "../discovery-source.js";
 
 const REDDIT_RSS_URL = "https://www.reddit.com/search.rss";
-const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
+
+// Reddit requires a descriptive user-agent and is more permissive when
+// the request looks like a browser visiting the site.
+const USER_AGENT =
+  "Mozilla/5.0 (compatible; DistributionCopilot/1.0; +https://distributioncop.com)";
+
+const REQUEST_HEADERS = {
+  "User-Agent": USER_AGENT,
+  Accept: "application/rss+xml, application/xml, text/xml, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+};
+
+/** How long to wait after a 429 before retrying (used if Retry-After header is absent). */
+const DEFAULT_RETRY_AFTER_MS = 10_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Parse Reddit Atom entries from raw XML.
@@ -21,11 +39,17 @@ const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
 function parseAtomEntries(
   xml: string,
   log: (msg: string) => void,
-): { title: string; url: string; snippet: string }[] {
+): { title: string; url: string; snippet: string; publishedAt?: string; author?: string }[] {
   const rawEntries = xml.match(/<entry>[\s\S]*?<\/entry>/g) ?? [];
   log(`[reddit] raw <entry> blocks found: ${String(rawEntries.length)}`);
 
-  const results: { title: string; url: string; snippet: string }[] = [];
+  const results: {
+    title: string;
+    url: string;
+    snippet: string;
+    publishedAt?: string;
+    author?: string;
+  }[] = [];
 
   for (const entry of rawEntries) {
     // Reddit Atom ID format: t{kind}_{base36id}
@@ -66,7 +90,14 @@ function parseAtomEntries(
       /<content[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content>/i.exec(entry)?.[1] ?? "";
     const snippet = stripHtml(decodeXmlEntities(rawContent)).slice(0, 300);
 
-    results.push({ title, url, snippet });
+    const publishedRaw = /<published>([\s\S]*?)<\/published>/i.exec(entry)?.[1]?.trim();
+    const publishedAt = publishedRaw && !isNaN(Date.parse(publishedRaw)) ? publishedRaw : undefined;
+
+    // Reddit Atom entries include <author><name>/u/username</name></author>.
+    const rawAuthorName = /<author>[\s\S]*?<name>([\s\S]*?)<\/name>/i.exec(entry)?.[1]?.trim();
+    const author = rawAuthorName ? rawAuthorName.replace(/^\/u\//i, "") : undefined;
+
+    results.push({ title, url, snippet, publishedAt, author });
   }
 
   return results;
@@ -122,47 +153,88 @@ export const redditSource: DiscoverySource = {
     options?: DiscoverySearchOptions,
     log: (msg: string) => void = console.log,
   ): Promise<DiscoveryResult[]> {
+    // Use relevance sort for one-shot discovery (best quality signal).
+    // When monitoring (options.since is set) we switch to "new" so we only
+    // pick up posts published after the last check window.
+    const sort = options?.since ? "new" : "relevance";
     const params = new URLSearchParams({
       q: query,
-      sort: "new",
-      t: toRedditTimeBucket(options?.since),
+      sort,
       limit: String(Math.min(limit, 25)),
       type: "link", // submissions only — excludes subreddit and user results
     });
-
-    const url = `${REDDIT_RSS_URL}?${params.toString()}`;
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { "User-Agent": USER_AGENT },
-        signal: AbortSignal.timeout(15_000),
-      });
-    } catch (err) {
-      console.error(`[reddit] network error for query="${query}": ${String(err)}`);
-      return [];
+    if (options?.since) {
+      params.set("t", toRedditTimeBucket(options.since));
     }
 
-    if (response.status === 429) {
-      console.warn(`[reddit] rate-limited (429) for query="${query}"`);
-      return [];
+    const feedUrl = `${REDDIT_RSS_URL}?${params.toString()}`;
+    const MAX_ATTEMPTS = 3;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let response: Response;
+      try {
+        response = await fetch(feedUrl, {
+          headers: REQUEST_HEADERS,
+          signal: AbortSignal.timeout(15_000),
+        });
+      } catch (err) {
+        console.error(`[reddit] network error for query="${query}": ${String(err)}`);
+        return [];
+      }
+
+      if (response.status === 429) {
+        const retryAfterSec = parseInt(response.headers.get("retry-after") ?? "0", 10);
+        const waitMs = retryAfterSec > 0 ? retryAfterSec * 1_000 : DEFAULT_RETRY_AFTER_MS;
+        if (attempt < MAX_ATTEMPTS) {
+          console.warn(
+            `[reddit] rate-limited (429) for query="${query}" — waiting ${String(waitMs / 1_000)}s before retry ${String(attempt + 1)}/${String(MAX_ATTEMPTS)}`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+        console.warn(
+          `[reddit] rate-limited (429) for query="${query}" — giving up after ${String(MAX_ATTEMPTS)} attempts`,
+        );
+        return [];
+      }
+
+      if (!response.ok) {
+        console.error(
+          `[reddit] RSS feed returned ${String(response.status)} for query="${query}"${attempt < MAX_ATTEMPTS ? ` — retrying (${String(attempt + 1)}/${String(MAX_ATTEMPTS)})` : " — giving up"}`,
+        );
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(2_000);
+          continue;
+        }
+        return [];
+      }
+
+      let xml: string;
+      try {
+        xml = await response.text();
+      } catch (err) {
+        console.error(`[reddit] failed to read response for query="${query}": ${String(err)}`);
+        return [];
+      }
+
+      // Reddit sometimes returns an HTML page (captcha / login redirect) instead
+      // of XML when it wants to challenge the client. Detect and skip.
+      if (!xml.trimStart().startsWith("<")) {
+        console.warn(`[reddit] non-XML response for query="${query}" — skipping`);
+        return [];
+      }
+
+      const entries = parseAtomEntries(xml, log);
+      log(`[reddit] parsed ${String(entries.length)} post URLs from feed for query="${query}"`);
+      return entries.map((e) => ({
+        url: e.url,
+        title: e.title,
+        snippet: e.snippet,
+        publishedAt: e.publishedAt,
+        author: e.author,
+      }));
     }
 
-    if (!response.ok) {
-      console.error(`[reddit] RSS feed failed: ${String(response.status)} for query="${query}"`);
-      return [];
-    }
-
-    let xml: string;
-    try {
-      xml = await response.text();
-    } catch (err) {
-      console.error(`[reddit] failed to read response for query="${query}": ${String(err)}`);
-      return [];
-    }
-
-    const entries = parseAtomEntries(xml, log);
-    log(`[reddit] parsed ${String(entries.length)} post URLs from feed for query="${query}"`);
-    return entries.map((e) => ({ url: e.url, title: e.title, snippet: e.snippet }));
+    return [];
   },
 };

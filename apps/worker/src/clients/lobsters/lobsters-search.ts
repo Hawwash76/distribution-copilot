@@ -7,6 +7,15 @@ import type {
 const LOBSTERS_SEARCH_URL = "https://lobste.rs/search";
 const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
 
+/** How long to wait after a 429 before retrying (used if Retry-After header is absent). */
+const DEFAULT_RETRY_AFTER_MS = 10_000;
+
+const MAX_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function decodeXmlEntities(s: string): string {
   return s
     .replace(/&amp;/g, "&")
@@ -57,7 +66,16 @@ function parseLobstersRss(
       /<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i.exec(item)?.[1] ?? "";
     const snippet = stripHtml(decodeXmlEntities(rawDesc)).slice(0, 300);
 
-    results.push({ url: commentsUrl, title, snippet });
+    const pubDateRaw = /<pubDate>([\s\S]*?)<\/pubDate>/i.exec(item)?.[1]?.trim();
+    const publishedAt =
+      pubDateRaw && !isNaN(Date.parse(pubDateRaw)) ? new Date(pubDateRaw).toISOString() : undefined;
+
+    const rawAuthor =
+      /<dc:creator>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/dc:creator>/i.exec(item)?.[1]?.trim() ??
+      /<author>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/author>/i.exec(item)?.[1]?.trim();
+    const author = rawAuthor ? decodeXmlEntities(rawAuthor) : undefined;
+
+    results.push({ url: commentsUrl, title, snippet, publishedAt, author });
   }
 
   return results;
@@ -90,37 +108,60 @@ export const lobstersSource: DiscoverySource = {
       format: "rss",
     });
 
-    let response: Response;
-    try {
-      response = await fetch(`${LOBSTERS_SEARCH_URL}?${params.toString()}`, {
-        headers: { "User-Agent": USER_AGENT },
-        signal: AbortSignal.timeout(15_000),
-      });
-    } catch (err) {
-      console.error(`[lobsters] network error for query="${query}": ${String(err)}`);
-      return [];
+    const feedUrl = `${LOBSTERS_SEARCH_URL}?${params.toString()}`;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let response: Response;
+      try {
+        response = await fetch(feedUrl, {
+          headers: { "User-Agent": USER_AGENT },
+          signal: AbortSignal.timeout(15_000),
+        });
+      } catch (err) {
+        console.error(`[lobsters] network error for query="${query}": ${String(err)}`);
+        return [];
+      }
+
+      if (response.status === 429) {
+        const retryAfterSec = parseInt(response.headers.get("retry-after") ?? "0", 10);
+        const waitMs = retryAfterSec > 0 ? retryAfterSec * 1_000 : DEFAULT_RETRY_AFTER_MS;
+        if (attempt < MAX_ATTEMPTS) {
+          console.warn(
+            `[lobsters] rate-limited (429) for query="${query}" — waiting ${String(waitMs / 1_000)}s before retry ${String(attempt + 1)}/${String(MAX_ATTEMPTS)}`,
+          );
+          await sleep(waitMs);
+          continue;
+        }
+        console.warn(
+          `[lobsters] rate-limited (429) for query="${query}" — giving up after ${String(MAX_ATTEMPTS)} attempts`,
+        );
+        return [];
+      }
+
+      if (!response.ok) {
+        console.error(
+          `[lobsters] search failed: ${String(response.status)} for query="${query}"${attempt < MAX_ATTEMPTS ? ` — retrying (${String(attempt + 1)}/${String(MAX_ATTEMPTS)})` : " — giving up"}`,
+        );
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(2_000);
+          continue;
+        }
+        return [];
+      }
+
+      let xml: string;
+      try {
+        xml = await response.text();
+      } catch (err) {
+        console.error(`[lobsters] failed to read response for query="${query}": ${String(err)}`);
+        return [];
+      }
+
+      const results = parseLobstersRss(xml, limit, log);
+      log(`[lobsters] parsed ${String(results.length)} stories for query="${query}"`);
+      return results;
     }
 
-    if (response.status === 429) {
-      console.warn(`[lobsters] rate-limited (429) for query="${query}"`);
-      return [];
-    }
-
-    if (!response.ok) {
-      console.error(`[lobsters] search failed: ${String(response.status)} for query="${query}"`);
-      return [];
-    }
-
-    let xml: string;
-    try {
-      xml = await response.text();
-    } catch (err) {
-      console.error(`[lobsters] failed to read response for query="${query}": ${String(err)}`);
-      return [];
-    }
-
-    const results = parseLobstersRss(xml, limit, log);
-    log(`[lobsters] parsed ${String(results.length)} stories for query="${query}"`);
-    return results;
+    return [];
   },
 };

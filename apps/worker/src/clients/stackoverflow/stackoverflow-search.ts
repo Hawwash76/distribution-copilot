@@ -7,6 +7,15 @@ import type {
 const SE_API_URL = "https://api.stackexchange.com/2.3/search/advanced";
 const USER_AGENT = "DistributionCopilot/1.0 (non-commercial; discovery)";
 
+/** How long to wait after a 429 before retrying (used if Retry-After header is absent). */
+const DEFAULT_RETRY_AFTER_MS = 10_000;
+
+const MAX_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function stripHtml(s: string): string {
   return s
     .replace(/<[^>]+>/g, " ")
@@ -28,6 +37,8 @@ interface SeItem {
   question_id: number;
   title?: string;
   body?: string;
+  creation_date?: number;
+  owner?: { display_name?: string };
 }
 
 interface SeResponse {
@@ -78,46 +89,75 @@ function createStackExchangeSource(
       const apiKey = process.env["STACK_EXCHANGE_KEY"];
       if (apiKey) params.set("key", apiKey);
 
-      let response: Response;
-      try {
-        response = await fetch(`${SE_API_URL}?${params.toString()}`, {
-          headers: { "User-Agent": USER_AGENT },
-          signal: AbortSignal.timeout(15_000),
-        });
-      } catch (err) {
-        console.error(`[${site}] network error for query="${query}": ${String(err)}`);
-        return [];
+      const feedUrl = `${SE_API_URL}?${params.toString()}`;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        let response: Response;
+        try {
+          response = await fetch(feedUrl, {
+            headers: { "User-Agent": USER_AGENT },
+            signal: AbortSignal.timeout(15_000),
+          });
+        } catch (err) {
+          console.error(`[${site}] network error for query="${query}": ${String(err)}`);
+          return [];
+        }
+
+        if (response.status === 429) {
+          const retryAfterSec = parseInt(response.headers.get("retry-after") ?? "0", 10);
+          const waitMs = retryAfterSec > 0 ? retryAfterSec * 1_000 : DEFAULT_RETRY_AFTER_MS;
+          if (attempt < MAX_ATTEMPTS) {
+            console.warn(
+              `[${site}] rate-limited (429) for query="${query}" — waiting ${String(waitMs / 1_000)}s before retry ${String(attempt + 1)}/${String(MAX_ATTEMPTS)}`,
+            );
+            await sleep(waitMs);
+            continue;
+          }
+          console.warn(
+            `[${site}] rate-limited (429) for query="${query}" — giving up after ${String(MAX_ATTEMPTS)} attempts`,
+          );
+          return [];
+        }
+
+        if (!response.ok) {
+          console.error(
+            `[${site}] search failed: ${String(response.status)} for query="${query}"${attempt < MAX_ATTEMPTS ? ` — retrying (${String(attempt + 1)}/${String(MAX_ATTEMPTS)})` : " — giving up"}`,
+          );
+          if (attempt < MAX_ATTEMPTS) {
+            await sleep(2_000);
+            continue;
+          }
+          return [];
+        }
+
+        let body: SeResponse;
+        try {
+          body = (await response.json()) as SeResponse;
+        } catch (err) {
+          console.error(`[${site}] failed to parse response: ${String(err)}`);
+          return [];
+        }
+
+        const results: DiscoveryResult[] = [];
+        for (const item of (body.items ?? []).slice(0, limit)) {
+          const publishedAt =
+            item.creation_date != null
+              ? new Date(item.creation_date * 1000).toISOString()
+              : undefined;
+          results.push({
+            url: `${baseUrl}/questions/${String(item.question_id)}`,
+            title: decodeHtmlEntities(item.title ?? ""),
+            snippet: stripHtml(decodeHtmlEntities(item.body ?? "")).slice(0, 300),
+            publishedAt,
+            author: item.owner?.display_name ?? undefined,
+          });
+        }
+
+        log(`[${site}] parsed ${String(results.length)} questions for query="${query}"`);
+        return results;
       }
 
-      if (response.status === 429) {
-        console.warn(`[${site}] rate-limited (429) for query="${query}"`);
-        return [];
-      }
-
-      if (!response.ok) {
-        console.error(`[${site}] search failed: ${String(response.status)} for query="${query}"`);
-        return [];
-      }
-
-      let body: SeResponse;
-      try {
-        body = (await response.json()) as SeResponse;
-      } catch (err) {
-        console.error(`[${site}] failed to parse response: ${String(err)}`);
-        return [];
-      }
-
-      const results: DiscoveryResult[] = [];
-      for (const item of (body.items ?? []).slice(0, limit)) {
-        results.push({
-          url: `${baseUrl}/questions/${String(item.question_id)}`,
-          title: decodeHtmlEntities(item.title ?? ""),
-          snippet: stripHtml(decodeHtmlEntities(item.body ?? "")).slice(0, 300),
-        });
-      }
-
-      log(`[${site}] parsed ${String(results.length)} questions for query="${query}"`);
-      return results;
+      return [];
     },
   };
 }

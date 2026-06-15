@@ -1,9 +1,10 @@
-import { Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from "@nestjs/common";
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
 import { DiscoveryService } from "./discovery.service";
+import { triggerDiscoverySchema, type TriggerDiscoveryInput } from "./dto/trigger-discovery.input";
 
 @Controller("products")
 @UseGuards(SessionGuard)
@@ -16,8 +17,10 @@ export class DiscoveryController {
   async triggerDiscovery(
     @Param("id") id: string,
     @CurrentUser() user: { id: string },
+    @Body() rawBody: unknown,
   ): Promise<{ jobId: string; status: "queued" }> {
-    const { jobId } = await this.discoveryService.enqueueForProduct(id, user.id);
+    const body: TriggerDiscoveryInput = triggerDiscoverySchema.parse(rawBody ?? {});
+    const { jobId } = await this.discoveryService.enqueueForProduct(id, user.id, body.source);
     return { jobId, status: "queued" };
   }
 }

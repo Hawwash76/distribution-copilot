@@ -17,6 +17,22 @@ export interface ExtractedContent {
 const FETCH_TIMEOUT_MS = 10_000;
 
 /**
+ * Thrown by platform extractors when the platform rate-limits us (429) or
+ * returns a 5xx. Propagates through extractContent so BullMQ can retry the
+ * whole job with exponential backoff instead of silently falling back to "web".
+ */
+class RetryableExtractError extends Error {
+  constructor(
+    public readonly platform: string,
+    public readonly status: number,
+    url: string,
+  ) {
+    super(`[extract] ${platform} returned ${String(status)} for ${url} — will retry`);
+    this.name = "RetryableExtractError";
+  }
+}
+
+/**
  * Extracts structured content from a URL.
  *
  * Returns null when content fails a quality gate (deleted/removed Reddit post,
@@ -31,12 +47,12 @@ const FETCH_TIMEOUT_MS = 10_000;
  *   dev.to              → DEV.to articles API
  *   everything else     → uses the SERP fallback (title + snippet) as content
  *
- * Never throws. On any fetch/parse error the platform-specific handler returns
- * null or the generic fallback, so the pipeline always gets a result.
+ * Throws RetryableExtractError on 429/5xx so BullMQ can back off and retry.
+ * Falls back to source="web" on any other non-fatal extraction failure.
  */
 export async function extractContent(
   url: string,
-  fallback: { title: string; snippet: string },
+  fallback: { title: string; snippet: string; publishedAt?: string; author?: string },
 ): Promise<ExtractedContent | null> {
   try {
     if (isRedditUrl(url)) return await extractReddit(url, fallback);
@@ -45,6 +61,8 @@ export async function extractContent(
     if (isLobstersUrl(url)) return await extractLobsters(url, fallback);
     if (isDevToUrl(url)) return await extractDevTo(url, fallback);
   } catch (err) {
+    // Re-throw retryable errors (429/5xx) so BullMQ backs off and retries.
+    if (err instanceof RetryableExtractError) throw err;
     console.warn(`[extract] failed to extract ${url}: ${String(err)}`);
   }
 
@@ -85,7 +103,7 @@ function redditQualityFailReason(post: RedditPost): string | null {
 
 async function extractReddit(
   url: string,
-  fallback: { title: string; snippet: string },
+  fallback: { title: string; snippet: string; publishedAt?: string; author?: string },
 ): Promise<ExtractedContent | null> {
   const cleanUrl = url.split("?")[0]?.split("#")[0] ?? url;
   const jsonUrl = cleanUrl.endsWith("/") ? `${cleanUrl}.json` : `${cleanUrl}.json`;
@@ -95,12 +113,31 @@ async function extractReddit(
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
-  if (!response.ok) return genericFallback(url, fallback);
+  if (!response.ok) {
+    // 429 or 5xx: throw so BullMQ retries with backoff.
+    if (response.status === 429 || response.status >= 500) {
+      throw new RetryableExtractError("reddit", response.status, url);
+    }
+    // 403/404/other: we know it's a Reddit URL so attribute it correctly.
+    console.warn(`[extract] reddit ${String(response.status)} for ${url} — using RSS fallback`);
+    return redditFallback(url, fallback);
+  }
 
-  const data = (await response.json()) as RedditJsonResponse;
+  let data: RedditJsonResponse;
+  try {
+    data = (await response.json()) as RedditJsonResponse;
+  } catch {
+    // Reddit returned 200 but non-JSON (e.g. HTML login/captcha page).
+    console.warn(`[extract] reddit returned non-JSON for ${url} — using RSS fallback`);
+    return redditFallback(url, fallback);
+  }
+
   const post = data?.[0]?.data?.children?.[0]?.data;
 
-  if (!post) return genericFallback(url, fallback);
+  if (!post) {
+    console.warn(`[extract] reddit response had no post data for ${url} — using RSS fallback`);
+    return redditFallback(url, fallback);
+  }
 
   const failReason = redditQualityFailReason(post);
   if (failReason) {
@@ -295,8 +332,33 @@ async function extractDevTo(
 }
 
 // ---------------------------------------------------------------------------
-// Generic fallback
+// Fallbacks
 // ---------------------------------------------------------------------------
+
+/**
+ * Reddit-attributed fallback used when the JSON API fails but we already know
+ * the URL is a Reddit post. Preserves source="reddit", subreddit, publish date,
+ * and author from the RSS Atom feed so the opportunity isn't mislabelled as "web".
+ * Score/upvotes are not available in the RSS feed — they remain null.
+ */
+function redditFallback(
+  url: string,
+  fallback: { title: string; snippet: string; publishedAt?: string; author?: string },
+): ExtractedContent {
+  const subredditMatch = /\/r\/([^/]+)\//.exec(url);
+  const idMatch = /\/comments\/([a-z0-9]+)/i.exec(url);
+  return {
+    title: fallback.title,
+    body: fallback.snippet || null,
+    author: fallback.author ?? null,
+    publishedAt: fallback.publishedAt ? new Date(fallback.publishedAt) : null,
+    platformScore: null,
+    commentCount: null,
+    source: "reddit",
+    externalId: idMatch?.[1] ?? null,
+    communityExternalId: subredditMatch?.[1] ?? null,
+  };
+}
 
 function genericFallback(
   _url: string,

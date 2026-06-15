@@ -1,7 +1,12 @@
-import { z as zod } from "zod";
+import { z as zod } from "@distribution-copilot/shared";
+import { discussionSourceSchema } from "@distribution-copilot/shared";
 
-/** No body is required — the productId comes from the URL param and keywords
- *  are loaded from the product's AI profile inside the worker. */
-export const triggerDiscoverySchema = zod.object({});
+/**
+ * Optional source filter — when provided, only that platform is searched.
+ * Omitting it runs all sources (the default behaviour).
+ */
+export const triggerDiscoverySchema = zod.object({
+  source: discussionSourceSchema.optional(),
+});
 
 export type TriggerDiscoveryInput = zod.infer<typeof triggerDiscoverySchema>;

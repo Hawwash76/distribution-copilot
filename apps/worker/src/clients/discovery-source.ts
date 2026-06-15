@@ -3,6 +3,10 @@ export interface DiscoveryResult {
   url: string;
   title: string;
   snippet: string;
+  /** ISO-8601 string when the source can provide a publish date (e.g. Reddit Atom feed). */
+  publishedAt?: string;
+  /** Author username when the source provides it (e.g. Reddit Atom `<author>` tag). */
+  author?: string;
 }
 
 /** Options accepted by every discovery source's search method. */

@@ -17,10 +17,21 @@ import { type DiscoveryJobPayload, type DiscoveryJobResult } from "./discovery.t
 
 const payloadSchema = zod.object({
   productId: zod.string().min(1),
+  source: zod.string().optional(),
 });
+
+/**
+ * Maximum age of a discovered post in days. Results with a known publishedAt
+ * older than this are dropped before enqueuing. Results with no publishedAt
+ * (source didn't provide one at discovery time) are always kept.
+ */
+const MAX_RESULT_AGE_DAYS = 90;
 
 /** Maximum number of keywords to search per run. */
 const MAX_KEYWORDS = 5;
+
+/** Maximum number of pain points to use as additional search queries. */
+const MAX_PAIN_POINT_QUERIES = 3;
 
 /** Maximum number of competitor names to use in the competitor-tracking pass. */
 const MAX_COMPETITORS = 3;
@@ -59,15 +70,53 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Returns true when publishedAt is known and older than MAX_RESULT_AGE_DAYS. */
+function isTooOld(publishedAt?: string): boolean {
+  if (!publishedAt) return false;
+  const date = new Date(publishedAt);
+  if (isNaN(date.getTime())) return false;
+  return (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24) > MAX_RESULT_AGE_DAYS;
+}
+
+/**
+ * Returns true when the title or snippet contains enough signal words from
+ * at least one of the given terms to be worth extracting.
+ *
+ * For each term, all words longer than 3 characters must appear in the text.
+ * This catches paraphrased language ("my emails keep going to spam" matches
+ * the term "emails landing spam") without requiring an exact phrase match.
+ * Short stop-words (a, an, the, in, to, …) are skipped automatically.
+ */
+function isRelevant(title: string, snippet: string, terms: string[]): boolean {
+  if (terms.length === 0) return true;
+  const text = `${title} ${snippet}`.toLowerCase();
+  return terms.some((term) => {
+    const words = term
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 3);
+    return words.length > 0 && words.every((w) => text.includes(w));
+  });
+}
+
 /**
  * Runs a set of queries against all sources, deduplicating URLs into seenUrls
  * and appending new results to urlsToExtract. Mutates both collections.
+ * Results whose title+snippet share no significant words with relevanceTerms
+ * are dropped before enqueuing to avoid polluting the DB with junk.
  */
 async function searchAllSources(
   queries: string[],
   sources: DiscoverySource[],
   seenUrls: Set<string>,
-  urlsToExtract: { url: string; title: string; snippet: string }[],
+  urlsToExtract: {
+    url: string;
+    title: string;
+    snippet: string;
+    publishedAt?: string;
+    author?: string;
+  }[],
+  relevanceTerms: string[],
   log: (msg: string) => void,
 ): Promise<void> {
   for (const source of sources) {
@@ -78,13 +127,32 @@ async function searchAllSources(
       if (!query) continue;
       const results = await source.search(query, RESULTS_PER_QUERY);
 
-      log(`[discovery] source=${source.name} query="${query}" results=${String(results.length)}`);
+      log(`[discovery] source=${source.name} query="${query}" found=${String(results.length)}`);
 
+      let kept = 0;
       for (const result of results) {
         if (seenUrls.has(result.url)) continue;
         seenUrls.add(result.url);
-        urlsToExtract.push(result);
+        if (isTooOld(result.publishedAt)) {
+          log(
+            `[discovery] age-filtered: "${result.title.slice(0, 70)}" (${result.publishedAt ?? "no date"})`,
+          );
+          continue;
+        }
+        if (!isRelevant(result.title, result.snippet, relevanceTerms)) {
+          log(`[discovery] relevance-filtered: "${result.title.slice(0, 70)}"`);
+          continue;
+        }
+        urlsToExtract.push({
+          url: result.url,
+          title: result.title,
+          snippet: result.snippet,
+          publishedAt: result.publishedAt,
+          author: result.author,
+        });
+        kept++;
       }
+      log(`[discovery] source=${source.name} query="${query}" kept=${String(kept)}`);
     }
   }
 }
@@ -104,8 +172,8 @@ export async function runDiscovery(
   raw: unknown,
   log: (msg: string) => void = console.log,
 ): Promise<DiscoveryJobResult> {
-  const { productId } = payloadSchema.parse(raw) as DiscoveryJobPayload;
-  log(`[discovery] starting product=${productId}`);
+  const { productId, source } = payloadSchema.parse(raw) as DiscoveryJobPayload;
+  log(`[discovery] starting product=${productId}${source ? ` source=${source}` : ""}`);
 
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -116,30 +184,74 @@ export async function runDiscovery(
     throw new Error(`[discovery] product ${productId} not found`);
   }
 
-  // ── Keyword pass ─────────────────────────────────────────────────────────
-  // Use profile keywords if available; fall back to product name.
+  // ── Build relevance terms for pre-filtering ──────────────────────────────
+  // All keywords + pain points are used both as search queries AND as the
+  // vocabulary for the pre-filter that drops clearly irrelevant results.
+  const profile = product.profile;
   const keywordQueries: string[] =
-    product.profile && product.profile.keywords.length > 0
-      ? product.profile.keywords.slice(0, MAX_KEYWORDS)
+    profile && profile.keywords.length > 0
+      ? profile.keywords.slice(0, MAX_KEYWORDS)
       : [product.name];
 
+  // Pain points describe the problem in customer language — excellent for
+  // finding intent-rich posts that generic keywords miss.
+  const painPointQueries: string[] =
+    profile && profile.painPoints.length > 0
+      ? profile.painPoints.slice(0, MAX_PAIN_POINT_QUERIES)
+      : [];
+
+  // The union of keywords + pain points is the relevance vocabulary.
+  // A result must share significant words with at least one of these terms.
+  const relevanceTerms: string[] = [...keywordQueries, ...painPointQueries];
+
+  // When a source filter is provided, only that platform is searched.
+  const activeSources = source ? SOURCES.filter((s) => s.name === source) : SOURCES;
+
   log(
-    `[discovery] keyword pass: queries=${keywordQueries.join(" | ")} sources=${SOURCES.map((s) => s.name).join(", ")}`,
+    `[discovery] keyword pass: queries=${keywordQueries.join(" | ")} sources=${activeSources.map((s) => s.name).join(", ")}`,
   );
 
   const extractQueue = new Queue(EXTRACT_QUEUE, { connection: redisConnection });
   const seenUrls = new Set<string>();
-  const urlsToExtract: { url: string; title: string; snippet: string }[] = [];
+  const urlsToExtract: {
+    url: string;
+    title: string;
+    snippet: string;
+    publishedAt?: string;
+    author?: string;
+  }[] = [];
 
-  await searchAllSources(keywordQueries, SOURCES, seenUrls, urlsToExtract, log);
+  await searchAllSources(
+    keywordQueries,
+    activeSources,
+    seenUrls,
+    urlsToExtract,
+    relevanceTerms,
+    log,
+  );
+
+  // ── Pain-point pass ──────────────────────────────────────────────────────
+  // Searches using customer pain language ("emails landing in spam") which
+  // surfaces intent-rich posts that exact product-category keywords miss.
+  if (painPointQueries.length > 0) {
+    log(`[discovery] pain-point pass: queries=${painPointQueries.join(" | ")}`);
+    await searchAllSources(
+      painPointQueries,
+      activeSources,
+      seenUrls,
+      urlsToExtract,
+      relevanceTerms,
+      log,
+    );
+  }
 
   // ── Competitor-tracking pass ─────────────────────────────────────────────
   // Surfaces conversations where people express frustration with competitors
   // or actively compare alternatives — the highest-converting signal type.
   const competitorNames: string[] = [];
 
-  if (product.profile && product.profile.competitors.length > 0) {
-    competitorNames.push(...product.profile.competitors.slice(0, MAX_COMPETITORS));
+  if (profile && profile.competitors.length > 0) {
+    competitorNames.push(...profile.competitors.slice(0, MAX_COMPETITORS));
   } else if (product.competitors) {
     // Fall back to the raw competitors string on Product if no profile yet
     competitorNames.push(
@@ -159,16 +271,33 @@ export async function runDiscovery(
     ]);
 
     log(`[discovery] competitor pass: queries=${competitorQueries.join(" | ")}`);
-    await searchAllSources(competitorQueries, SOURCES, seenUrls, urlsToExtract, log);
+    // Competitor queries use their own terms as relevance anchors — a post
+    // mentioning "Instantly alternative" is relevant even without keyword overlap.
+    const competitorTerms = competitorNames;
+    await searchAllSources(
+      competitorQueries,
+      activeSources,
+      seenUrls,
+      urlsToExtract,
+      competitorTerms,
+      log,
+    );
   }
 
-  log(`[discovery] unique URLs=${String(urlsToExtract.length)}`);
+  log(`[discovery] unique URLs to extract=${String(urlsToExtract.length)}`);
 
   let extractJobsEnqueued = 0;
-  for (const { url, title, snippet } of urlsToExtract) {
+  for (const { url, title, snippet, publishedAt, author } of urlsToExtract) {
     await extractQueue.add(
       "extract",
-      { url, productId, sourceTitle: title, sourceSnippet: snippet },
+      {
+        url,
+        productId,
+        sourceTitle: title,
+        sourceSnippet: snippet,
+        ...(publishedAt ? { sourcePublishedAt: publishedAt } : {}),
+        ...(author ? { sourceAuthor: author } : {}),
+      },
       {
         attempts: 3,
         backoff: { type: "exponential", delay: 3_000 },
@@ -180,7 +309,7 @@ export async function runDiscovery(
   }
 
   log(
-    `[discovery] done — urlsFound=${String(urlsToExtract.length)} extractJobsEnqueued=${String(extractJobsEnqueued)}`,
+    `[discovery] done — kept=${String(urlsToExtract.length)} extractJobsEnqueued=${String(extractJobsEnqueued)}`,
   );
 
   return { urlsFound: urlsToExtract.length, extractJobsEnqueued };

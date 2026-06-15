@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  type DiscussionSource,
   type Opportunity,
   type OpportunityStatus,
   type SignalType,
@@ -39,6 +40,7 @@ export function OpportunityRow({ opp, productId }: { opp: Opportunity; productId
       >
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-medium leading-snug">{opp.title}</p>
+          <SourceBadge source={opp.source} />
           <StatusBadge status={opp.status} />
         </div>
         <p className="text-muted-foreground mt-0.5 text-xs">
@@ -179,6 +181,42 @@ export function SignalTypeBadge({ type }: { type: SignalType }) {
   const config = SIGNAL_TYPE_CONFIG[type];
   return (
     <span className={`rounded px-1.5 py-0.5 font-medium ${config.className}`}>{config.label}</span>
+  );
+}
+
+const SOURCE_BADGE_CONFIG: Record<DiscussionSource, { label: string; className: string }> = {
+  reddit: {
+    label: "Reddit",
+    className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  },
+  hackernews: {
+    label: "HN",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  },
+  stackoverflow: {
+    label: "SO",
+    className: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+  },
+  lobsters: {
+    label: "Lobsters",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  },
+  devto: {
+    label: "Dev.to",
+    className: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+  },
+  web: {
+    label: "Web",
+    className: "bg-muted text-muted-foreground",
+  },
+};
+
+function SourceBadge({ source }: { source: DiscussionSource }) {
+  const config = SOURCE_BADGE_CONFIG[source] ?? SOURCE_BADGE_CONFIG.web;
+  return (
+    <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${config.className}`}>
+      {config.label}
+    </span>
   );
 }
 

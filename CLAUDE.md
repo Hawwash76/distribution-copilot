@@ -118,12 +118,12 @@ apps/web  ──(REST over HTTP/JSON, shapes from @distribution-copilot/shared)�
                                                                           ▼
                                                               PostgreSQL + pgvector
   ┌──────────────────────────────────────────────────────────────────────────────┐
-  │  apps/worker runs a three-queue SERP discovery pipeline:                    │
-  │    "discovery" → SerpAPI → URLs → enqueues "extract" jobs (one per URL)     │
-  │    "extract"   → fetches URL → upserts Discussion + Opportunity → enqueues  │
+  │  apps/worker runs a three-queue SERP discovery pipeline:                     │
+  │    "discovery" → SerpAPI → URLs → enqueues "extract" jobs (one per URL)      │
+  │    "extract"   → fetches URL → upserts Discussion + Opportunity → enqueues   │
   │                  "scoring" job                                               │
-  │    "scoring"   → AI scoring → saves scores; status advances to "scored"     │
-  │  External APIs: SerpAPI (SERP), Reddit public JSON, Algolia HN API.         │
+  │    "scoring"   → AI scoring → saves scores; status advances to "scored"      │
+  │  External APIs: SerpAPI (SERP), Reddit public JSON, Algolia HN API.          │
   └──────────────────────────────────────────────────────────────────────────────┘
 ```
 

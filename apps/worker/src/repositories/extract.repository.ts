@@ -51,6 +51,10 @@ export class ExtractRepository {
     const row = await this.db.discussion.upsert({
       where: { url },
       update: {
+        // Source and externalId are updated so stale "web" records get corrected
+        // if the same URL is re-processed after a proper platform extractor runs.
+        source: content.source,
+        externalId: content.externalId,
         title: content.title,
         body: content.body,
         author: content.author,

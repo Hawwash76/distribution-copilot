@@ -9,6 +9,10 @@ export interface ExtractJobPayload {
   sourceTitle: string;
   /** Snippet from the discovery source — used as fallback body if extraction fails. */
   sourceSnippet: string;
+  /** ISO-8601 publish date from the discovery source, when available (e.g. Reddit Atom feed). */
+  sourcePublishedAt?: string;
+  /** Author username from the discovery source, when available (e.g. Reddit Atom `<author>` tag). */
+  sourceAuthor?: string;
 }
 
 /** Result written back to BullMQ on successful completion. */

@@ -9,6 +9,7 @@ import { useProduct } from "@/features/products/hooks/use-product";
 import { useDeleteProduct } from "@/features/products/hooks/use-delete-product";
 import { useProductProfile } from "@/features/products/hooks/use-product-profile";
 import { useGenerateProfile } from "@/features/products/hooks/use-generate-profile";
+import { useDiscoverOpportunities } from "@/features/opportunities/hooks/use-discover-opportunities";
 import { useProductMonitors } from "@/features/products/hooks/use-product-monitors";
 import { useToggleMonitor } from "@/features/products/hooks/use-toggle-monitor";
 import { useDashboardStats } from "@/features/stats/hooks/use-dashboard-stats";
@@ -34,6 +35,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { data: profile, isLoading: isProfileLoading } = useProductProfile(id);
   const { mutate: deleteProduct, isPending: isDeleting } = useDeleteProduct();
   const { mutate: generateProfile, isPending: isGenerating } = useGenerateProfile();
+  const { mutate: runDiscovery, isPending: isDiscovering } = useDiscoverOpportunities(id);
   const { data: monitors, isLoading: isMonitorsLoading } = useProductMonitors(id);
   const { mutate: toggleMonitor, isPending: isToggling } = useToggleMonitor(id);
   const { data: stats } = useDashboardStats();
@@ -76,6 +78,13 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isGenerating ? "Generating…" : profile ? "Regenerate with AI" : "Generate with AI"}
+        </button>
+        <button
+          onClick={() => runDiscovery(undefined)}
+          disabled={isDiscovering}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          {isDiscovering ? "Running…" : "Run Discovery"}
         </button>
         <button
           onClick={handleDelete}
@@ -195,6 +204,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                 onToggle={(enabled) =>
                   toggleMonitor({ source: monitor.source as DiscussionSource, enabled })
                 }
+                onRun={() => runDiscovery(monitor.source as DiscussionSource)}
+                isRunning={isDiscovering}
               />
             ))}
           </div>
@@ -208,10 +219,14 @@ function MonitorRow({
   monitor,
   disabled,
   onToggle,
+  onRun,
+  isRunning,
 }: {
   monitor: MonitorStatus;
   disabled: boolean;
   onToggle: (enabled: boolean) => void;
+  onRun: () => void;
+  isRunning: boolean;
 }) {
   const label = SOURCE_LABELS[monitor.source as DiscussionSource] ?? monitor.source;
 
@@ -225,20 +240,29 @@ function MonitorRow({
         <p className="text-sm font-medium">{label}</p>
         <p className="text-muted-foreground text-xs">Last checked: {lastChecked}</p>
       </div>
-      <button
-        onClick={() => onToggle(!monitor.enabled)}
-        disabled={disabled}
-        aria-label={monitor.enabled ? `Disable ${label}` : `Enable ${label}`}
-        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-          monitor.enabled ? "bg-primary" : "bg-muted-foreground/30"
-        }`}
-      >
-        <span
-          className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-            monitor.enabled ? "translate-x-4" : "translate-x-0"
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onRun}
+          disabled={isRunning}
+          className="border-border hover:bg-accent rounded px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50"
+        >
+          {isRunning ? "Running…" : "Run"}
+        </button>
+        <button
+          onClick={() => onToggle(!monitor.enabled)}
+          disabled={disabled}
+          aria-label={monitor.enabled ? `Disable ${label}` : `Enable ${label}`}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+            monitor.enabled ? "bg-primary" : "bg-muted-foreground/30"
           }`}
-        />
-      </button>
+        >
+          <span
+            className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+              monitor.enabled ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
     </div>
   );
 }

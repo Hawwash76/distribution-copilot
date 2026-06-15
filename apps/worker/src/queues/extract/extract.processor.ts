@@ -1,8 +1,11 @@
 import { z as zod } from "@distribution-copilot/shared";
 import { prisma } from "@distribution-copilot/database";
+import { Queue } from "bullmq";
 
 import { extractContent } from "../../clients/extract/content-extractor.js";
 import { ExtractRepository } from "../../repositories/extract.repository.js";
+import { redisConnection } from "../../config/redis.js";
+import { SCORING_QUEUE } from "../scoring/scoring.types.js";
 import { type ExtractJobPayload, type ExtractJobResult } from "./extract.types.js";
 
 const payloadSchema = zod.object({
@@ -10,6 +13,8 @@ const payloadSchema = zod.object({
   productId: zod.string().min(1),
   sourceTitle: zod.string(),
   sourceSnippet: zod.string(),
+  sourcePublishedAt: zod.string().optional(),
+  sourceAuthor: zod.string().optional(),
 });
 
 /**
@@ -28,11 +33,16 @@ export async function runExtract(
   log: (msg: string) => void = console.log,
 ): Promise<ExtractJobResult> {
   const payload = payloadSchema.parse(raw) as ExtractJobPayload;
-  const { url, productId, sourceTitle, sourceSnippet } = payload;
+  const { url, productId, sourceTitle, sourceSnippet, sourcePublishedAt, sourceAuthor } = payload;
 
   log(`[extract] url=${url} product=${productId}`);
 
-  const content = await extractContent(url, { title: sourceTitle, snippet: sourceSnippet });
+  const content = await extractContent(url, {
+    title: sourceTitle,
+    snippet: sourceSnippet,
+    publishedAt: sourcePublishedAt,
+    author: sourceAuthor,
+  });
 
   // null means the content failed a quality gate — skip without creating records.
   if (content === null) {
@@ -65,6 +75,32 @@ export async function runExtract(
 
   const opportunity = await repo.upsertOpportunity(discussion.id, productId);
   log(`[extract] opportunity id=${opportunity.id} created=${String(opportunity.created)}`);
+
+  // Enqueue a scoring job after every new opportunity. The jobId is stable per
+  // product so many concurrent extract jobs collapse into a single scoring run.
+  if (opportunity.created) {
+    const scoringQueue = new Queue(SCORING_QUEUE, { connection: redisConnection });
+    const scoringJobId = `scoring-${productId}`;
+    const existingJob = await scoringQueue.getJob(scoringJobId);
+    if (existingJob) {
+      const state = await existingJob.getState();
+      if (state === "completed" || state === "failed") {
+        await existingJob.remove();
+      }
+    }
+    await scoringQueue.add(
+      "score",
+      { productId },
+      {
+        jobId: scoringJobId,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5_000 },
+        delay: 2_000, // short delay so batch extracts complete before scoring starts
+      },
+    );
+    log(`[extract] enqueued scoring job for product=${productId}`);
+    await scoringQueue.close();
+  }
 
   return { discussionId: discussion.id, opportunityCreated: opportunity.created, skipped: false };
 }
