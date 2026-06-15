@@ -14,6 +14,11 @@ export const productSchema = zod.object({
   competitors: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
+  // Alert config — null means channel not configured
+  slackWebhookUrl: zod.string().nullable(),
+  telegramBotToken: zod.string().nullable(),
+  telegramChatId: zod.string().nullable(),
+  alertThreshold: zod.number().int(),
 });
 
 export const createProductSchema = zod.object({
@@ -58,8 +63,17 @@ export const productProfileSchema = zod.object({
   generatedAt: zod.coerce.date(),
 });
 
+/** Input schema for configuring Slack / Telegram alerts on a product. */
+export const updateProductAlertsSchema = zod.object({
+  slackWebhookUrl: zod.string().url("Must be a valid URL").nullable().optional(),
+  telegramBotToken: zod.string().nullable().optional(),
+  telegramChatId: zod.string().nullable().optional(),
+  alertThreshold: zod.number().int().min(0).max(100).optional(),
+});
+
 export type Product = zod.infer<typeof productSchema>;
 export type CreateProductInput = zod.infer<typeof createProductSchema>;
 export type UpdateProductInput = zod.infer<typeof updateProductSchema>;
+export type UpdateProductAlertsInput = zod.infer<typeof updateProductAlertsSchema>;
 export type GeneratedProductProfile = zod.infer<typeof generatedProductProfileSchema>;
 export type ProductProfile = zod.infer<typeof productProfileSchema>;

@@ -3,12 +3,14 @@ import "dotenv/config";
 import { startDiscoveryWorker } from "./queues/discovery/discovery.worker.js";
 import { startExtractWorker } from "./queues/extract/extract.worker.js";
 import { startMonitorWorker } from "./queues/monitor/monitor.worker.js";
+import { startNotificationWorker } from "./queues/notification/notification.worker.js";
 import { startScoringWorker } from "./queues/scoring/scoring.worker.js";
 
 /**
  * Worker entrypoint — registers and starts all BullMQ workers.
  *
  * Pipeline:  discovery → extract (one job per URL) → scoring (one job per product)
+ *                                                  → notification (Slack/Telegram alerts)
  * Monitoring: monitor sweep fires on a repeatable schedule (default every 30 min),
  *             queries enabled ProductMonitor rows, and feeds URLs into the extract queue.
  */
@@ -17,11 +19,12 @@ function bootstrap(): void {
     startDiscoveryWorker(),
     startExtractWorker(),
     startScoringWorker(),
+    startNotificationWorker(),
     startMonitorWorker(),
   ];
 
   console.log(
-    `[worker] started — ${String(workers.length)} queue(s) registered: discovery, extract, scoring, monitor`,
+    `[worker] started — ${String(workers.length)} queue(s) registered: discovery, extract, scoring, notification, monitor`,
   );
 
   const shutdown = async (): Promise<void> => {

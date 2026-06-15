@@ -171,6 +171,12 @@ model Product {
   opportunities    Opportunity[]
   monitors         ProductMonitor[]
 
+  // Alert configuration — null means channel is not configured
+  slackWebhookUrl  String?          // Slack incoming webhook URL
+  telegramBotToken String?          // Telegram bot token from BotFather
+  telegramChatId   String?          // Telegram chat/group/channel ID
+  alertThreshold   Int              @default(70) // minimum overallScore to trigger an alert
+
   @@index([userId, isDeleted])
   @@map("products")
 }
@@ -261,6 +267,9 @@ model Opportunity {
   // Engagement tracking — set when the user replies to this conversation off-platform
   engagedAt    DateTime? // when the user marked this as engaged
   engagedReply String?   // what the user actually said in their reply
+
+  // Alert tracking — set after Slack/Telegram notification is sent; prevents duplicate alerts
+  notifiedAt   DateTime?
 
   @@unique([productId, discussionId])
   @@index([productId, status])

@@ -14,8 +14,11 @@ import {
   scoreOpportunity,
 } from "@distribution-copilot/ai";
 import { prisma } from "@distribution-copilot/database";
+import { Queue } from "bullmq";
 
 import { ScoringRepository } from "../../repositories/scoring.repository.js";
+import { redisConnection } from "../../config/redis.js";
+import { NOTIFICATION_QUEUE } from "../notification/notification.types.js";
 import { type ScoringJobPayload, type ScoringJobResult } from "./scoring.types.js";
 
 const payloadSchema = zod.object({
@@ -72,6 +75,7 @@ export async function runScoring(
   const now = new Date();
   let opportunitiesScored = 0;
   let partialScores = 0;
+  const scoredOpportunityIds: string[] = [];
 
   for (const opp of opportunities) {
     const engagementScore = computeEngagementScore(opp.platformScore, opp.commentCount);
@@ -145,6 +149,9 @@ export async function runScoring(
         `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} signal=${scores.signalType} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)} risk=${overallRisk}`,
       );
       opportunitiesScored++;
+      if (overallScore >= AUTO_DISMISS_THRESHOLD) {
+        scoredOpportunityIds.push(opp.id);
+      }
     } else {
       const overallScore = computePartialOverallScore(engagementScore, recencyScore);
 
@@ -178,6 +185,22 @@ export async function runScoring(
       );
       partialScores++;
     }
+  }
+
+  // Enqueue a notification job for any opportunities that reached status="scored".
+  // The notification processor will apply the product's alertThreshold and skip
+  // channels that haven't been configured — safe to enqueue unconditionally.
+  if (scoredOpportunityIds.length > 0) {
+    const notificationQueue = new Queue(NOTIFICATION_QUEUE, { connection: redisConnection });
+    await notificationQueue.add(
+      "notify",
+      { productId, opportunityIds: scoredOpportunityIds },
+      { attempts: 3, backoff: { type: "exponential", delay: 3_000 } },
+    );
+    await notificationQueue.close();
+    log(
+      `[scoring] enqueued notification job for ${String(scoredOpportunityIds.length)} opportunities`,
+    );
   }
 
   log(`[scoring] done — scored=${String(opportunitiesScored)} partial=${String(partialScores)}`);

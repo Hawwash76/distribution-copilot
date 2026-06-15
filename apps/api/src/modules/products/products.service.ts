@@ -3,6 +3,7 @@ import {
   type CreateProductInput,
   type GeneratedProductProfile,
   type UpdateProductInput,
+  type UpdateProductAlertsInput,
   type Product,
   type ProductProfile,
 } from "@distribution-copilot/shared";
@@ -63,5 +64,14 @@ export class ProductsService {
     const profile = await this.products.findProfile(id);
     if (!profile) throw new NotFoundException(`No profile generated yet for product ${id}`);
     return profile;
+  }
+
+  async updateAlerts(
+    id: string,
+    userId: string,
+    input: UpdateProductAlertsInput,
+  ): Promise<Product> {
+    await this.findOne(id, userId);
+    return this.products.updateAlerts(id, userId, input);
   }
 }

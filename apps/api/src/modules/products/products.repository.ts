@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import {
   type CreateProductInput,
   type UpdateProductInput,
+  type UpdateProductAlertsInput,
   type Product,
   type ProductProfile,
   type GeneratedProductProfile,
@@ -48,6 +49,18 @@ export class ProductsRepository {
 
   async delete(id: string, userId: string): Promise<void> {
     await this.prisma.db.product.delete({ where: { id, userId } });
+  }
+
+  async updateAlerts(
+    id: string,
+    userId: string,
+    input: UpdateProductAlertsInput,
+  ): Promise<Product> {
+    const row = await this.prisma.db.product.update({
+      where: { id, userId },
+      data: input,
+    });
+    return this.toProduct(row);
   }
 
   async findProfile(productId: string): Promise<ProductProfile | null> {
@@ -104,6 +117,10 @@ export class ProductsRepository {
     competitors: string | null;
     createdAt: Date;
     updatedAt: Date;
+    slackWebhookUrl: string | null;
+    telegramBotToken: string | null;
+    telegramChatId: string | null;
+    alertThreshold: number;
   }): Product {
     return {
       id: row.id,
@@ -115,6 +132,10 @@ export class ProductsRepository {
       competitors: row.competitors,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      slackWebhookUrl: row.slackWebhookUrl,
+      telegramBotToken: row.telegramBotToken,
+      telegramChatId: row.telegramChatId,
+      alertThreshold: row.alertThreshold,
     };
   }
 }

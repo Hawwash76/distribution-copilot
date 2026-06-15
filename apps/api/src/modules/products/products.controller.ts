@@ -14,11 +14,13 @@ import {
   createProductSchema,
   generatedProductProfileSchema,
   updateProductSchema,
+  updateProductAlertsSchema,
   type CreateProductInput,
   type GeneratedProductProfile,
   type Product,
   type ProductProfile,
   type UpdateProductInput,
+  type UpdateProductAlertsInput,
 } from "@distribution-copilot/shared";
 
 import { ZodValidationPipe } from "../../common/zod-validation.pipe";
@@ -91,5 +93,14 @@ export class ProductsController {
     @CurrentUser() user: { id: string },
   ): Promise<ProductProfile> {
     return this.productsService.getProfile(id, user.id);
+  }
+
+  @Patch(":id/alerts")
+  updateAlerts(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(updateProductAlertsSchema)) dto: UpdateProductAlertsInput,
+    @CurrentUser() user: { id: string },
+  ): Promise<Product> {
+    return this.productsService.updateAlerts(id, user.id, dto);
   }
 }
