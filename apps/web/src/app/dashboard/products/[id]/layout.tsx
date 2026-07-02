@@ -24,9 +24,13 @@ export default function ProductLayout({ children, params }: ProductLayoutProps) 
 
   const overviewPath = `/dashboard/products/${id}`;
   const opportunitiesPath = `/dashboard/products/${id}/opportunities`;
+  const researchPath = `/dashboard/products/${id}/research`;
+  const competitorMonitorPath = `/dashboard/products/${id}/competitor-monitor`;
   const isOverview = pathname === overviewPath;
   const isOpportunitiesList = pathname === opportunitiesPath;
-  const showTabs = isOverview || isOpportunitiesList;
+  const isResearch = pathname === researchPath;
+  const isCompetitorMonitor = pathname === competitorMonitorPath;
+  const showTabs = isOverview || isOpportunitiesList || isResearch || isCompetitorMonitor;
 
   return (
     <div>
@@ -79,6 +83,26 @@ export default function ProductLayout({ children, params }: ProductLayoutProps) 
               }`}
             >
               Opportunities
+            </Link>
+            <Link
+              href={researchPath}
+              className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
+                isResearch
+                  ? "border-foreground text-foreground"
+                  : "text-muted-foreground hover:text-foreground border-transparent"
+              }`}
+            >
+              Research
+            </Link>
+            <Link
+              href={competitorMonitorPath}
+              className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
+                isCompetitorMonitor
+                  ? "border-foreground text-foreground"
+                  : "text-muted-foreground hover:text-foreground border-transparent"
+              }`}
+            >
+              Competitors
             </Link>
           </nav>
         </div>

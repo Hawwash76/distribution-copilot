@@ -25,6 +25,11 @@ export {
   type GenerateReplyDraftResult,
 } from "./capabilities/generate-reply-draft.js";
 
+export {
+  extractPainPoints,
+  type ExtractPainPointsResult,
+} from "./capabilities/extract-pain-points.js";
+
 export { createProvider } from "./providers/create-provider.js";
 export { createMockProvider } from "./providers/mock.js";
 export { type Provider, type JsonCompletion } from "./providers/provider.js";

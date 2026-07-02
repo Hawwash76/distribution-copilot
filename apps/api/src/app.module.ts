@@ -6,11 +6,13 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { configuration } from "./config/configuration";
 import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
+import { CompetitorMonitorModule } from "./modules/competitor-monitor/competitor-monitor.module";
 import { DiscoveryModule } from "./modules/discovery/discovery.module";
 import { HealthModule } from "./modules/health/health.module";
 import { MonitorsModule } from "./modules/monitors/monitors.module";
 import { OpportunitiesModule } from "./modules/opportunities/opportunities.module";
 import { ProductsModule } from "./modules/products/products.module";
+import { ResearchModule } from "./modules/research/research.module";
 import { StatsModule } from "./modules/stats/stats.module";
 
 @Module({
@@ -32,6 +34,8 @@ import { StatsModule } from "./modules/stats/stats.module";
     DiscoveryModule,
     MonitorsModule,
     OpportunitiesModule,
+    CompetitorMonitorModule,
+    ResearchModule,
     StatsModule,
     BillingModule,
   ],

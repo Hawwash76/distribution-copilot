@@ -216,10 +216,26 @@ model Discussion {
   communityId   String?          // null for non-community sources (generic web)
   community     Community?       @relation(fields: [communityId], references: [id])
   opportunities Opportunity[]
+  painPoints    PainPoint[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
   @@map("discussions")
+}
+
+/// A pain point extracted by AI from a discussion. Linked to the discussion
+/// (not the opportunity) so the same extraction is shared across products.
+model PainPoint {
+  id           String     @id @default(cuid())
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  theme        String     // short normalized label, e.g. "Slow customer support"
+  quote        String     // verbatim or lightly paraphrased excerpt from the post
+  intensity    String     // "low" | "medium" | "high"
+  createdAt    DateTime   @default(now())
+
+  @@index([discussionId])
+  @@map("pain_points")
 }
 
 /// A scored discussion tied to a product. Separates raw content (Discussion)

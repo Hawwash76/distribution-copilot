@@ -6,3 +6,4 @@ export * from "./community";
 export * from "./stats";
 export * from "./monitor";
 export * from "./billing";
+export * from "./pain-point";

@@ -1,11 +1,19 @@
 import { type PrismaClient } from "@distribution-copilot/database";
 import {
   type OpportunityStatus,
+  type PainPointIntensity,
   type ProductProfile,
   type RiskLevel,
   type RiskWarning,
   type SignalType,
 } from "@distribution-copilot/shared";
+
+/** A single pain point to persist, extracted from discussion content. */
+export interface RawPainPoint {
+  theme: string;
+  quote: string;
+  intensity: PainPointIntensity;
+}
 
 /**
  * Opportunity enriched with content fields from the linked Discussion and its
@@ -126,6 +134,24 @@ export class ScoringRepository {
         replyDraftModel: scores.replyDraftModel,
         status: scores.status,
       },
+    });
+  }
+
+  /** Returns true if pain points have already been extracted for this discussion. */
+  async hasDiscussionPainPoints(discussionId: string): Promise<boolean> {
+    const count = await this.db.painPoint.count({ where: { discussionId } });
+    return count > 0;
+  }
+
+  /** Saves extracted pain points for a discussion. Safe to call only when none exist (see hasDiscussionPainPoints). */
+  async savePainPoints(discussionId: string, points: RawPainPoint[]): Promise<void> {
+    await this.db.painPoint.createMany({
+      data: points.map((p) => ({
+        discussionId,
+        theme: p.theme,
+        quote: p.quote,
+        intensity: p.intensity,
+      })),
     });
   }
 

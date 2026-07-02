@@ -14,4 +14,6 @@ export const AI_MODELS = {
   REPLY: "claude-sonnet-4-6",
   /** Product profile generation (one-off per product). */
   PROFILE: "claude-sonnet-4-6",
+  /** Pain point extraction from discussion content. */
+  PAIN_POINTS: "claude-haiku-4-5",
 } as const;

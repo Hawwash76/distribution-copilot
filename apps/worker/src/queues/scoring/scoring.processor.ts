@@ -10,6 +10,7 @@ import {
 import {
   assessRisk,
   createProvider,
+  extractPainPoints,
   generateReplyDraft,
   scoreOpportunity,
 } from "@distribution-copilot/ai";
@@ -151,6 +152,19 @@ export async function runScoring(
       opportunitiesScored++;
       if (overallScore >= AUTO_DISMISS_THRESHOLD) {
         scoredOpportunityIds.push(opp.id);
+
+        // Extract pain points from the discussion content (once per discussion,
+        // shared across products). Skip if already extracted.
+        const alreadyExtracted = await repo.hasDiscussionPainPoints(opp.discussionId);
+        if (!alreadyExtracted) {
+          const { painPoints } = await extractPainPoints(opp.title, opp.body, provider);
+          if (painPoints.length > 0) {
+            await repo.savePainPoints(opp.discussionId, painPoints);
+            log(
+              `[scoring] extracted ${String(painPoints.length)} pain points for discussion=${opp.discussionId}`,
+            );
+          }
+        }
       }
     } else {
       const overallScore = computePartialOverallScore(engagementScore, recencyScore);

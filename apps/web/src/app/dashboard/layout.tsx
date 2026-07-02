@@ -10,6 +10,7 @@ import { useBillingStatus } from "@/features/billing/hooks/use-billing-status";
 const NAV_LINKS = [
   { href: "/dashboard/products", label: "Products" },
   { href: "/dashboard/opportunities", label: "Opportunities" },
+  { href: "/dashboard/competitor-monitor", label: "Competitors" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
@@ -24,7 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   }
 
-  const isLocked = billing?.isLocked ?? false;
+  const isLocked = (billing?.isLocked ?? false) && !pathname.startsWith("/dashboard/upgrade");
   const showTrialBanner = billing?.status === "trialing" && (billing.daysRemaining ?? 0) <= 2;
 
   return (
