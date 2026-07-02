@@ -36,16 +36,18 @@ Controller route → thin: validate (Zod) + auth guard + call one service + retu
 
 ## Modules (all implemented)
 
-| Module                 | Routes                                                                                                                             | Notes                                                |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `health`               | `GET /health`                                                                                                                      | `{ status: "ok" }` — liveness check                  |
-| `auth`                 | `POST /auth/sign-in`, `/sign-up`, `/sign-out`, `/forget-password`, `/reset-password`                                               | Delegates to Better Auth; session guard lives here   |
-| `products`             | `GET/POST /products`, `GET/PATCH/DELETE /products/:id`, `POST /products/:id/generate-profile`                                      | Full product + profile CRUD                          |
-| `opportunities`        | `GET /products/:id/opportunities`, `GET/PATCH/DELETE /products/:id/opportunities/:oid`, `POST …/engage`, `POST …/regenerate-reply` | Opportunity lifecycle + AI reply regeneration        |
-| `discovery`            | `POST /products/:id/discover`                                                                                                      | Enqueues a one-shot discovery job for a product      |
-| `stats`                | `GET /stats`                                                                                                                       | Aggregate dashboard stats for the authenticated user |
-| `monitors` _(Phase 7)_ | `GET /products/:id/monitors`, `PATCH /products/:id/monitors/:source`                                                               | Per-source monitoring toggles (not yet built)        |
-| `billing` _(Phase 8)_  | `GET /billing/status`, `POST /billing/checkout`, `POST /billing/portal`, `POST /billing/webhook`                                   | Stripe + trial management (not yet built)            |
+| Module               | Routes                                                                                                                             | Notes                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `health`             | `GET /health`                                                                                                                      | `{ status: "ok" }` — liveness check                  |
+| `auth`               | `POST /auth/sign-in`, `/sign-up`, `/sign-out`, `/forget-password`, `/reset-password`                                               | Delegates to Better Auth; session guard lives here   |
+| `products`           | `GET/POST /products`, `GET/PATCH/DELETE /products/:id`, `POST /products/:id/generate-profile`                                      | Full product + profile CRUD                          |
+| `opportunities`      | `GET /products/:id/opportunities`, `GET/PATCH/DELETE /products/:id/opportunities/:oid`, `POST …/engage`, `POST …/regenerate-reply` | Opportunity lifecycle + AI reply regeneration        |
+| `discovery`          | `POST /products/:id/discover`                                                                                                      | Enqueues a one-shot discovery job for a product      |
+| `stats`              | `GET /stats`                                                                                                                       | Aggregate dashboard stats for the authenticated user |
+| `monitors`           | `GET /products/:id/monitors`, `PATCH /products/:id/monitors/:source`                                                               | Per-source monitoring toggles                        |
+| `billing`            | `GET /billing/status`, `POST /billing/checkout`, `POST /billing/portal`, `POST /billing/webhook`                                   | Stripe + trial management                            |
+| `competitor-monitor` | `GET /products/:id/competitor-monitor`                                                                                             | Opportunities flagged as competitor signals          |
+| `research`           | `GET /products/:id/research/pain-points`                                                                                           | Pain points aggregated by frequency × intensity      |
 
 ## Folder conventions
 
@@ -74,9 +76,9 @@ src/
   `userId`; map Prisma rows → `shared` domain types.
 - **Config via `ConfigService`** from the typed `configuration()` factory; validate env at
   startup against the shared `envSchema`. Never read `process.env` ad hoc.
-- **Errors:** throw typed `HttpException` subclasses with correct status codes; a global
-  exception filter maps uncaught errors and reports unexpected ones to Sentry (no PII). Use
-  NestJS `Logger`.
+- **Errors:** throw typed `HttpException` subclasses with correct status codes. Use NestJS
+  `Logger`. `// TODO(sentry): apps/api has no Sentry wiring yet — errors are logged, not
+reported. apps/web is wired (see apps/web/CLAUDE.md); the API side is an open gap.`
 - **Enqueue heavy work** (discovery/scoring) to BullMQ; the API may call `ai` directly only
   for fast, single-item, user-triggered actions (e.g. regenerate-reply, generate-profile)
   with a timeout.

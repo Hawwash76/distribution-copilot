@@ -100,13 +100,50 @@ Close the loop (to the human).
 - _Outcome:_ the full loop — discover → score → assess → draft → human edits → human posts
   manually.
 
-### Phase 6 — Polish & additional sources
+### Phase 6 — Polish & additional sources (done)
 
-- Add **X** and **Hacker News** connectors (new connector + `OpportunitySource` member;
-  downstream stages unchanged).
-- Refine prompts/scoring with real usage; add product-positioning fields that improve
+- Added **Hacker News, Stack Overflow, Software Recs, Lobsters, Dev.to** connectors
+  alongside Reddit (new connector + `DiscussionSource` member each; downstream stages
+  unchanged).
+- Refined prompts/scoring with real usage; added product-positioning fields that improve
   matching and drafting.
-- Harden monitoring (Sentry/PostHog wired), onboarding, and settings.
+
+### Phase 7 — Scheduled monitoring (done)
+
+- Added the `ProductMonitor` model + `monitors` module (per-source enable/disable toggles)
+  and the worker's `monitor` queue: a scheduled, repeatable sweep across enabled monitors
+  that feeds discovered URLs into the existing `extract` queue.
+
+### Phase 8 — Billing (done)
+
+- Added the `Subscription` model (auto-created on signup via Better Auth
+  `databaseHooks`), the `billing` module (Stripe Checkout + portal + webhook), and a
+  3-day trial. Stripe is optional — the app runs without `STRIPE_SECRET_KEY` (stubbed).
+- **Open gap:** `SubscriptionGuard` exists (`apps/api/src/common/subscription.guard.ts`)
+  but is not yet applied to any controller — paid gating is not enforced server-side.
+  Applying it is the direct blocker between "billing exists" and "billing is enforced."
+
+### Phase 9 — Landing page & launch prep (done)
+
+- Marketing site, `robots.ts`/`sitemap.ts`, PostHog wired in `apps/web`.
+- **Open gap:** Sentry is wired on the web side (`sentry.client/server.config.ts`) but
+  `apps/web/src/app/error.tsx` still only `console.error`s instead of reporting, and
+  `apps/api` has no Sentry wiring at all (see `apps/api/CLAUDE.md`).
+
+### Phase 10 — Real-time alerts (done)
+
+- Added the worker's `notification` queue: Slack/Telegram push when a scored opportunity
+  clears the alert threshold. Second delivery channel beyond the dashboard — see
+  `docs/IDEAS.md` "Build next" #1.
+
+### Phase 11 — Pain-point synthesis / research mode (done)
+
+- Added the `PainPoint` model (linked to `Discussion`, shared across products), the
+  `extractPainPoints` AI capability (runs once per discussion during scoring, past the
+  auto-dismiss threshold), and two new dashboard surfaces: `research` (pain points
+  aggregated by frequency × intensity per product) and `competitor-monitor`
+  (opportunities flagged as competitor frustration/evaluation signals). Delivers
+  `docs/IDEAS.md` "Build next" #2.
 
 ---
 

@@ -27,6 +27,7 @@ provider. **No AI vendor SDK is imported anywhere else.**
 | `scoreOpportunity`       | `capabilities/score-opportunity.ts`        | Worker (`scoring.processor`)                    | Returns intentScore (0–100), relevanceScore (0–100), signalType, and rationales                     |
 | `assessRisk`             | `capabilities/assess-risk.ts`              | Worker (`scoring.processor`)                    | Returns 4 risk dimensions (0–100 each), riskRationale                                               |
 | `generateReplyDraft`     | `capabilities/generate-reply-draft.ts`     | Worker (`scoring.processor`) + API (regenerate) | Drafts a context-aware reply respecting riskWarnings and signalType                                 |
+| `extractPainPoints`      | `capabilities/extract-pain-points.ts`      | Worker (`scoring.processor`)                    | Extracts theme/quote/intensity pain points from a discussion, once per Discussion                   |
 
 All capability functions share the signature pattern:
 
@@ -68,7 +69,10 @@ src/
 │   └── mock.ts                   # deterministic mock for tests/dev
 └── prompts/                      # versioned prompt templates, grouped by capability
     ├── scoring/index.ts
-    └── reply-generation/index.ts
+    ├── risk-analysis/index.ts
+    ├── reply-generation/index.ts
+    ├── product-profile/index.ts
+    └── pain-point-extraction/index.ts
 ```
 
 A capability function = build prompt (pure) → call `provider.jsonCompletion()` → **validate

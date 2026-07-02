@@ -25,15 +25,17 @@ side effects / I/O. **Keep it a leaf** so literally anything can import it.
 
 ## Schema files (current)
 
-| File                             | Exports                                                                                                                                                                                                                                                                                       |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schemas/user.ts`                | `userSchema`, `User`, `userProfileSchema`, `UserProfile`, `updateUserSchema`                                                                                                                                                                                                                  |
-| `schemas/product.ts`             | `productSchema`, `Product`, `createProductSchema`, `updateProductSchema`, `productProfileSchema`, `ProductProfile`, `generatedProductProfileSchema`, `GeneratedProductProfile`                                                                                                                |
-| `schemas/opportunity.ts`         | `opportunitySchema`, `Opportunity`, `opportunityStatusSchema`, `OpportunityStatus`, `signalTypeSchema`, `SignalType`, `riskLevelSchema`, `RiskLevel`, `riskWarningSchema`, `RiskWarning`, `markEngagedInputSchema`, `scoringAiResultSchema`, `riskAiResultSchema`, `replyDraftAiResultSchema` |
-| `schemas/discussion.ts`          | `discussionSchema`, `Discussion`, `discussionSourceSchema`, `DiscussionSource`                                                                                                                                                                                                                |
-| `schemas/community.ts`           | `communitySchema`, `Community`                                                                                                                                                                                                                                                                |
-| `schemas/stats.ts`               | `dashboardStatsSchema`, `DashboardStats`, `productStatSchema`, `ProductStat`                                                                                                                                                                                                                  |
-| `schemas/monitor.ts` _(Phase 7)_ | `productMonitorSchema`, `ProductMonitor`, `monitorStatusSchema`, `MonitorStatus` — not yet created                                                                                                                                                                                            |
+| File                     | Exports                                                                                                                                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemas/user.ts`        | `userSchema`, `User`, `userProfileSchema`, `UserProfile`, `updateUserSchema`                                                                                                                                                                                                                  |
+| `schemas/product.ts`     | `productSchema`, `Product`, `createProductSchema`, `updateProductSchema`, `productProfileSchema`, `ProductProfile`, `generatedProductProfileSchema`, `GeneratedProductProfile`                                                                                                                |
+| `schemas/opportunity.ts` | `opportunitySchema`, `Opportunity`, `opportunityStatusSchema`, `OpportunityStatus`, `signalTypeSchema`, `SignalType`, `riskLevelSchema`, `RiskLevel`, `riskWarningSchema`, `RiskWarning`, `markEngagedInputSchema`, `scoringAiResultSchema`, `riskAiResultSchema`, `replyDraftAiResultSchema` |
+| `schemas/discussion.ts`  | `discussionSchema`, `Discussion`, `discussionSourceSchema`, `DiscussionSource`                                                                                                                                                                                                                |
+| `schemas/community.ts`   | `communitySchema`, `Community`                                                                                                                                                                                                                                                                |
+| `schemas/stats.ts`       | `dashboardStatsSchema`, `DashboardStats`, `productStatSchema`, `ProductStat`                                                                                                                                                                                                                  |
+| `schemas/monitor.ts`     | `productMonitorSchema`, `ProductMonitor`, `monitorStatusSchema`, `MonitorStatus`                                                                                                                                                                                                              |
+| `schemas/billing.ts`     | `subscriptionSchema`, `Subscription`, `subscriptionStatusSchema`, `SubscriptionStatus`, `billingStatusSchema`, `BillingStatus`                                                                                                                                                                |
+| `schemas/pain-point.ts`  | `painPointSchema`, `PainPoint`, `painPointIntensitySchema`, `PainPointIntensity`, `aggregatedPainPointSchema`, `AggregatedPainPoint`                                                                                                                                                          |
 
 ## Folder conventions
 
@@ -47,7 +49,10 @@ src/
 │   ├── opportunity.ts
 │   ├── discussion.ts
 │   ├── community.ts
-│   └── stats.ts
+│   ├── stats.ts
+│   ├── monitor.ts
+│   ├── billing.ts
+│   └── pain-point.ts
 ├── types/              # inferred-type re-exports + non-schema shared types (Paginated<T>)
 └── utils/              # pure, dependency-free helpers
 ```

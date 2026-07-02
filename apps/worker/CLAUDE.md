@@ -12,8 +12,9 @@ AI scoring, and risk assessment.
 
 ## Responsibilities
 
-- Process **four BullMQ queues** that form the discovery pipeline:
-  `discovery` → `extract` → `scoring`, plus `monitor` (scheduled sweep).
+- Process **five BullMQ queues** that form the discovery pipeline:
+  `discovery` → `extract` → `scoring`, plus `monitor` (scheduled sweep) and `notification`
+  (Slack/Telegram alerts on high-score opportunities).
 - Call platform APIs through the **`clients/`** layer; persist results via repositories.
 - Run recurring monitoring work via BullMQ repeatable jobs (`monitor` queue).
 
@@ -35,16 +36,24 @@ AI scoring, and risk assessment.
 "scoring" queue
   Payload: { productId }
   Processor: scores all status="new" opportunities with AI (or partial if no profile) →
-             saves scores + risk + draft reply → advances status to "scored"
+             saves scores + risk + draft reply → advances status to "scored" →
+             for opportunities clearing AUTO_DISMISS_THRESHOLD, extracts pain points
+             (once per Discussion, shared across products) → enqueues "notification" job
   Concurrency: 1 (AI provider rate limits)
 
-"monitor" queue  (scheduled, repeatable — Phase 7)
+"monitor" queue  (scheduled, repeatable)
   Payload: none (global sweep)
   Processor: queries all enabled ProductMonitor rows → runs per-source keyword +
              competitor queries filtered by lastCheckedAt (or 30 days ago for first run) →
              feeds URLs into "extract" queue → stamps lastCheckedAt
   Schedule: every MONITOR_INTERVAL_MINUTES (default 30 min)
   Concurrency: 1
+
+"notification" queue
+  Payload: { opportunityId }
+  Processor: pushes a high-score opportunity alert to the user's configured Slack/Telegram
+             webhook, if any
+  Concurrency: 3
 ```
 
 ## Platform clients
