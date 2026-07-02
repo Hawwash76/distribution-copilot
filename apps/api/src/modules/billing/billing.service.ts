@@ -81,6 +81,8 @@ export class BillingService {
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: { userId },
+      // Copy userId onto the subscription so webhook events carry it
+      subscription_data: { metadata: { userId } },
     });
 
     return { url: session.url ?? successUrl };
