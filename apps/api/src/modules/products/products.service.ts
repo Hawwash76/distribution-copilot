@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, ConflictException, NotFoundException } from "@nestjs/common";
 import {
   type CreateProductInput,
   type GeneratedProductProfile,
@@ -11,6 +11,13 @@ import { generateProductProfile, type Provider } from "@distribution-copilot/ai"
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { ProductsRepository } from "./products.repository";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
+import { DiscoveryService } from "../discovery/discovery.service";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
+import { MonitorsService } from "../monitors/monitors.service";
+
+/** Days of history to backfill via discovery every time a profile is saved. */
+const BACKFILL_DAYS = 90;
 
 /** Business logic for product management. All operations are scoped to the authenticated user. */
 @Injectable()
@@ -18,6 +25,8 @@ export class ProductsService {
   constructor(
     private readonly products: ProductsRepository,
     @Inject("AI_PROVIDER") private readonly aiProvider: Provider,
+    private readonly discovery: DiscoveryService,
+    private readonly monitors: MonitorsService,
   ) {}
 
   findAll(userId: string): Promise<Product[]> {
@@ -50,13 +59,34 @@ export class ProductsService {
     input: GeneratedProductProfile,
   ): Promise<ProductProfile> {
     await this.findOne(id, userId);
-    return this.products.saveProfile(id, input, "manual");
+    const profile = await this.products.saveProfile(id, input, "manual");
+    await this.startBackfillAndListening(id, userId);
+    return profile;
   }
 
   async generateProfile(id: string, userId: string): Promise<ProductProfile> {
     const product = await this.findOne(id, userId);
     const { profile, model } = await generateProductProfile(product, this.aiProvider);
-    return this.products.saveProfile(id, profile, model);
+    const saved = await this.products.saveProfile(id, profile, model);
+    await this.startBackfillAndListening(id, userId);
+    return saved;
+  }
+
+  /**
+   * Kicks off a one-time ~90-day backfill discovery run and enables ongoing
+   * monitoring for a product right after its profile is (re)saved. A discovery
+   * job already in flight for this product is treated as a benign no-op — an
+   * automatic trigger should never fail profile saving over "already running,"
+   * unlike the manual "Discover" button which surfaces that as a real conflict.
+   */
+  private async startBackfillAndListening(productId: string, userId: string): Promise<void> {
+    const since = new Date(Date.now() - BACKFILL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      await this.discovery.enqueueForProduct(productId, userId, undefined, since);
+    } catch (err) {
+      if (!(err instanceof ConflictException)) throw err;
+    }
+    await this.monitors.enableAllForProduct(productId);
   }
 
   async getProfile(id: string, userId: string): Promise<ProductProfile> {

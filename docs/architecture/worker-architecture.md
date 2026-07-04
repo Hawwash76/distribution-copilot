@@ -10,8 +10,9 @@ Related: [`backend-architecture.md`](backend-architecture.md) (who enqueues),
 [`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md).
 
 > **Status.** The worker is **fully implemented** with five queues: `discovery`, `extract`,
-> `scoring`, `monitor`, and `scheduler`. The pipeline runs end-to-end: discovery → extract
-> → scoring, with the monitor scheduler driving periodic re-runs per product.
+> `scoring`, `monitor`, and `notification`. The pipeline runs end-to-end: discovery →
+> extract → scoring, with the monitor queue independently sweeping enabled sources on a
+> fixed interval and feeding new URLs straight into extract.
 
 ---
 
@@ -59,7 +60,7 @@ apps/worker/src/
     ├── discovery/
     │   ├── discovery.worker.ts      # BullMQ Worker — concurrency 1
     │   ├── discovery.processor.ts   # searches all enabled sources; enqueues extract jobs
-    │   └── discovery.types.ts       # DiscoveryJobPayload { productId }
+    │   └── discovery.types.ts       # DiscoveryJobPayload { productId, source?, since? }
     ├── extract/
     │   ├── extract.worker.ts        # BullMQ Worker — concurrency 3 (network I/O bound)
     │   ├── extract.processor.ts     # fetches URL, upserts Discussion + Opportunity, enqueues scoring
@@ -69,11 +70,13 @@ apps/worker/src/
     │   ├── scoring.processor.ts     # AI score + risk + reply draft; saves via repository
     │   └── scoring.types.ts         # ScoringJobPayload { productId }
     ├── monitor/
-    │   ├── monitor.worker.ts        # BullMQ Worker — processes per-product monitor sweeps
-    │   ├── monitor.processor.ts     # checks enabled monitors; enqueues discovery jobs
-    │   └── monitor.types.ts         # MonitorJobPayload { productId }
-    └── scheduler/
-        └── scheduler.worker.ts      # repeatable job that enqueues monitor jobs on a cron
+    │   ├── monitor.worker.ts        # BullMQ Worker — repeatable sweep (default every 30 min)
+    │   ├── monitor.processor.ts     # queries enabled ProductMonitor rows; feeds extract directly
+    │   └── monitor.types.ts         # MonitorJobResult { monitorsSwepted, extractJobsEnqueued }
+    └── notification/
+        ├── notification.worker.ts  # BullMQ Worker — concurrency 3
+        ├── notification.processor.ts # pushes Slack/Telegram alerts for scored opportunities
+        └── notification.types.ts   # NotificationJobPayload { opportunityId }
 ```
 
 Conventions: queue name is `kebab-case` (`"discovery"`); the worker file wires options
@@ -84,16 +87,17 @@ test**. Keep payload/result types typed (reuse `shared` where the shape is a dom
 
 ## 3. Queues (implemented)
 
-| Queue       | Triggered by                       | Job                                                                | Calls                                                                                 |
-| ----------- | ---------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| `discovery` | API (on-demand) or monitor queue   | Search all enabled sources; enqueue one extract job per URL found. | HN/Reddit/SO clients, `database`                                                      |
-| `extract`   | discovery completion (one per URL) | Fetch URL; upsert `Discussion` + `Opportunity`; enqueue scoring.   | HTTP fetch, `extract.repository`, `database`                                          |
-| `scoring`   | extract completion (per product)   | AI score + risk assess + reply draft for all unscored opps.        | `ai.scoreOpportunity`, `ai.assessRisk`, `ai.generateReplyDraft`, `scoring.repository` |
-| `monitor`   | scheduler (cron)                   | For each product, check enabled monitors; enqueue discovery jobs.  | `database`                                                                            |
-| `scheduler` | BullMQ repeatable (cron)           | Enqueues monitor sweep jobs on a configurable schedule.            | BullMQ                                                                                |
+| Queue          | Triggered by                                         | Job                                                                                                                                        | Calls                                                                                 |
+| -------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `discovery`    | API — manual click or profile save                   | Search all (or one) enabled source(s), optionally bounded by `since`; enqueue one extract job per URL found.                               | HN/Reddit/SO/Lobsters/Dev.to clients, `database`                                      |
+| `extract`      | discovery completion (one per URL), or monitor sweep | Fetch URL; upsert `Discussion` + `Opportunity`; enqueue scoring.                                                                           | HTTP fetch, `extract.repository`, `database`                                          |
+| `scoring`      | extract completion (per product)                     | AI score + risk assess + reply draft for all unscored opps.                                                                                | `ai.scoreOpportunity`, `ai.assessRisk`, `ai.generateReplyDraft`, `scoring.repository` |
+| `monitor`      | BullMQ repeatable (default 30 min)                   | Sweep every enabled `ProductMonitor` row; run keyword/competitor searches bounded by `lastCheckedAt`; feed new URLs into extract directly. | HN/Reddit/SO/Lobsters/Dev.to clients, `database`                                      |
+| `notification` | scoring completion (per opportunity)                 | Push a Slack/Telegram alert for a newly-scored opportunity, if configured.                                                                 | `database`                                                                            |
 
-The pipeline chains on completion: discovery → extract → scoring. The scheduler drives
-periodic re-runs. Each stage is single-purpose and idempotent.
+The pipeline chains on completion: discovery → extract → scoring → notification. The
+monitor queue runs independently on its own schedule and feeds extract directly,
+bypassing discovery. Each stage is single-purpose and idempotent.
 
 ---
 
@@ -138,13 +142,16 @@ platform is additive:
 
 ## 6. Scheduling & triggering
 
-- **On-demand:** the API enqueues a job in response to a user action (e.g. "find
-  opportunities for this product") and returns immediately; the user sees results when the
-  job completes (poll/refetch).
-- **Recurring:** BullMQ **repeatable jobs** drive periodic discovery/refresh. Keep
-  schedules conservative to respect platform limits.
-- **Pipelined:** a completed stage enqueues the next (discover → extract → score). The
-  scheduler drives monitor sweeps; monitors enqueue discovery jobs.
+- **On-demand:** the API enqueues a discovery job in response to a user action — a manual
+  "find opportunities" click, or automatically right after a product's profile is saved
+  (bounded to the last ~90 days via `since`) — and returns immediately; the user sees
+  results when the job completes (poll/refetch).
+- **Recurring:** the `monitor` queue is a BullMQ **repeatable job** (default every
+  `MONITOR_INTERVAL_MINUTES`) that sweeps every enabled `ProductMonitor` row independently
+  of discovery. A profile save also enables monitoring for a product's real sources, so
+  ongoing discovery keeps running with no further manual action.
+- **Pipelined:** a completed stage enqueues the next (discover → extract → score →
+  notify). The monitor sweep feeds `extract` directly, bypassing `discovery`.
 
 ---
 

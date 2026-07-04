@@ -21,10 +21,11 @@ AI scoring, and risk assessment.
 ## The pipeline
 
 ```
-"discovery" queue  (one-shot, user-triggered)
-  Payload: { productId }
-  Processor: loads product profile keywords → queries all 6 platform clients →
-             deduplicates URLs → enqueues one "extract" job per URL
+"discovery" queue  (one-shot; manual click, or automatic on profile save)
+  Payload: { productId, source?, since? }
+  Processor: loads product profile keywords → queries all 6 platform clients, bounded
+             by `since` when set (used for the ~90-day backfill triggered on profile
+             save) → deduplicates URLs → enqueues one "extract" job per URL
   Concurrency: 1
 
 "extract" queue

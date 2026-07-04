@@ -10,6 +10,9 @@ export interface DiscoveryJobPayload {
   productId: string;
   /** When set, only this platform is searched. Omit to run all sources. */
   source?: DiscussionSource;
+  /** ISO-8601 date string. When set, bounds the search to results published on/after
+   *  this date (honored server-side by sources that support it; see `DiscoverySource`). */
+  since?: string;
 }
 
 /** Result written back to BullMQ on successful completion. */

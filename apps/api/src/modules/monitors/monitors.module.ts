@@ -10,5 +10,6 @@ import { MonitorsService } from "./monitors.service";
   imports: [BillingModule],
   controllers: [MonitorsController],
   providers: [MonitorsService, MonitorsRepository, PrismaService],
+  exports: [MonitorsService],
 })
 export class MonitorsModule {}

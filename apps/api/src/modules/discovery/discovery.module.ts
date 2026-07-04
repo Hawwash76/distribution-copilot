@@ -18,5 +18,6 @@ import { BillingModule } from "../billing/billing.module.js";
       useFactory: () => new Queue("discovery", { connection: redisConnection }),
     },
   ],
+  exports: [DiscoveryService],
 })
 export class DiscoveryModule {}

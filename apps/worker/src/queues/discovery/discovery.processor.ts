@@ -18,12 +18,16 @@ import { type DiscoveryJobPayload, type DiscoveryJobResult } from "./discovery.t
 const payloadSchema = zod.object({
   productId: zod.string().min(1),
   source: zod.string().optional(),
+  since: zod.string().datetime().optional(),
 });
 
 /**
  * Maximum age of a discovered post in days. Results with a known publishedAt
  * older than this are dropped before enqueuing. Results with no publishedAt
  * (source didn't provide one at discovery time) are always kept.
+ *
+ * This applies regardless of any `since` passed on the job — it's the last line
+ * of defense for sources (Lobsters, Dev.to) that never filter server-side.
  */
 const MAX_RESULT_AGE_DAYS = 90;
 
@@ -118,6 +122,7 @@ async function searchAllSources(
   }[],
   relevanceTerms: string[],
   log: (msg: string) => void,
+  since?: Date,
 ): Promise<void> {
   for (const source of sources) {
     for (let i = 0; i < queries.length; i++) {
@@ -125,7 +130,7 @@ async function searchAllSources(
 
       const query = queries[i];
       if (!query) continue;
-      const results = await source.search(query, RESULTS_PER_QUERY);
+      const results = await source.search(query, RESULTS_PER_QUERY, since ? { since } : undefined);
 
       log(`[discovery] source=${source.name} query="${query}" found=${String(results.length)}`);
 
@@ -172,8 +177,11 @@ export async function runDiscovery(
   raw: unknown,
   log: (msg: string) => void = console.log,
 ): Promise<DiscoveryJobResult> {
-  const { productId, source } = payloadSchema.parse(raw) as DiscoveryJobPayload;
-  log(`[discovery] starting product=${productId}${source ? ` source=${source}` : ""}`);
+  const { productId, source, since } = payloadSchema.parse(raw) as DiscoveryJobPayload;
+  const sinceDate = since ? new Date(since) : undefined;
+  log(
+    `[discovery] starting product=${productId}${source ? ` source=${source}` : ""}${since ? ` since=${since}` : ""}`,
+  );
 
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -228,6 +236,7 @@ export async function runDiscovery(
     urlsToExtract,
     relevanceTerms,
     log,
+    sinceDate,
   );
 
   // ── Pain-point pass ──────────────────────────────────────────────────────
@@ -242,6 +251,7 @@ export async function runDiscovery(
       urlsToExtract,
       relevanceTerms,
       log,
+      sinceDate,
     );
   }
 
@@ -281,6 +291,7 @@ export async function runDiscovery(
       urlsToExtract,
       competitorTerms,
       log,
+      sinceDate,
     );
   }
 

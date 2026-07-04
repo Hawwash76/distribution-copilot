@@ -9,6 +9,8 @@ import { PrismaService } from "../../common/prisma.service";
  * Validates product ownership then enqueues a discovery job.
  * The worker loads keywords from the product's AI profile internally.
  * An optional source filter limits the run to a single platform (useful for testing).
+ * An optional `since` bounds the search window — used for the one-time ~90-day
+ * backfill that ProductsService triggers automatically after a profile save.
  */
 @Injectable()
 export class DiscoveryService {
@@ -21,6 +23,7 @@ export class DiscoveryService {
     productId: string,
     userId: string,
     source?: DiscussionSource,
+    since?: string,
   ): Promise<{ jobId: string }> {
     const product = await this.prisma.db.product.findFirst({
       where: { id: productId, userId },
@@ -46,7 +49,7 @@ export class DiscoveryService {
 
     const job = await this.queue.add(
       "discover",
-      { productId, ...(source ? { source } : {}) },
+      { productId, ...(source ? { source } : {}), ...(since ? { since } : {}) },
       {
         jobId,
         attempts: 3,

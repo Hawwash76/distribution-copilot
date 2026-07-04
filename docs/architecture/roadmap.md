@@ -119,9 +119,8 @@ Close the loop (to the human).
 - Added the `Subscription` model (auto-created on signup via Better Auth
   `databaseHooks`), the `billing` module (Stripe Checkout + portal + webhook), and a
   3-day trial. Stripe is optional — the app runs without `STRIPE_SECRET_KEY` (stubbed).
-- **Open gap:** `SubscriptionGuard` exists (`apps/api/src/common/subscription.guard.ts`)
-  but is not yet applied to any controller — paid gating is not enforced server-side.
-  Applying it is the direct blocker between "billing exists" and "billing is enforced."
+- `SubscriptionGuard` (`apps/api/src/common/subscription.guard.ts`) is now applied to
+  every paid-gated controller — billing is enforced server-side, not just modeled.
 
 ### Phase 9 — Landing page & launch prep (done)
 

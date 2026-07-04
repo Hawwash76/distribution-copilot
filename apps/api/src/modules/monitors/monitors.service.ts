@@ -47,6 +47,21 @@ export class MonitorsService {
     return this.repository.toggle(productId, parsed.data as DiscussionSource, enabled);
   }
 
+  /**
+   * Enables monitoring on every source except "web" (which has no search client
+   * in the monitor processor and would only ever be a no-op row). Called
+   * automatically after a profile save so ongoing listening starts without a
+   * manual toggle. No ownership check — callers already hold a verified productId.
+   */
+  async enableAllForProduct(productId: string): Promise<void> {
+    const statuses = await this.repository.findOrCreateAll(productId);
+    await Promise.all(
+      statuses
+        .filter((s) => s.source !== "web" && !s.enabled)
+        .map((s) => this.repository.toggle(productId, s.source, true)),
+    );
+  }
+
   private async assertOwnership(productId: string, userId: string): Promise<void> {
     const product = await this.prisma.db.product.findFirst({
       where: { id: productId, userId, isDeleted: false },
