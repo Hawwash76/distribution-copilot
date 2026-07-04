@@ -40,6 +40,29 @@ export class CompetitorMonitorRepository {
     return rows.map((row) => this.toOpportunity(row));
   }
 
+  /**
+   * Returns the top competitor-signal opportunities across ALL of a user's products,
+   * for a cross-product "front and center" priority view (see docs/IDEAS.md — "switching
+   * signal" priority queue). These are the highest-conversion moments in the product.
+   */
+  async findTopSignalsForUser(userId: string, limit: number): Promise<Opportunity[]> {
+    const rows = await this.prisma.db.opportunity.findMany({
+      where: {
+        product: { userId },
+        status: { not: "dismissed" },
+        signalType: { in: ["COMPETITOR_FRUSTRATION", "ACTIVE_EVALUATION"] },
+      },
+      orderBy: [{ overallScore: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+      take: limit,
+      include: {
+        discussion: {
+          include: { community: true },
+        },
+      },
+    });
+    return rows.map((row) => this.toOpportunity(row));
+  }
+
   private toOpportunity(row: {
     id: string;
     productId: string;

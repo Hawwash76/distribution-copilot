@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import { useSession } from "@/lib/auth-client";
 import { useDashboardStats } from "@/features/stats/hooks/use-dashboard-stats";
+import { usePrioritySignals } from "@/features/competitor-monitor/hooks/use-priority-signals";
+import { OpportunityRow } from "@/features/opportunities/components/opportunity-row";
 
 const ENGAGEMENT_RATE_GOOD = 30;
 const ENGAGEMENT_RATE_FAIR = 10;
@@ -11,6 +13,7 @@ const ENGAGEMENT_RATE_FAIR = 10;
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { data: stats, isLoading } = useDashboardStats();
+  const { data: prioritySignals } = usePrioritySignals();
 
   const toReview = (stats?.scoredCount ?? 0) + (stats?.reviewedCount ?? 0);
   const engageable = toReview + (stats?.engagedCount ?? 0);
@@ -37,6 +40,33 @@ export default function DashboardPage() {
           Find relevant conversations and draft replies for your products.
         </p>
       </div>
+
+      {/* Switching signals — the highest-conversion moments, front and center regardless
+          of which product they belong to. */}
+      {!showOnboarding && prioritySignals && prioritySignals.length > 0 && (
+        <div className="border-border bg-card mb-8 rounded-lg border p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Switching signals</h2>
+              <p className="text-muted-foreground mt-0.5 text-sm">
+                Someone's frustrated with a competitor or actively comparing alternatives — reply to
+                these first.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/competitor-monitor"
+              className="text-primary shrink-0 text-xs hover:underline"
+            >
+              View all →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {prioritySignals.map((opp) => (
+              <OpportunityRow key={opp.id} opp={opp} productId={opp.productId} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Onboarding checklist — shown until the pipeline has run at least once */}
       {showOnboarding && (

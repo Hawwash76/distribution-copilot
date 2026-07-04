@@ -23,4 +23,9 @@ export class CompetitorMonitorService {
 
     return this.competitorMonitor.findCompetitorSignals(productId);
   }
+
+  /** Top competitor-signal opportunities across all of the user's products. */
+  async findTopSignalsForUser(userId: string, limit: number): Promise<Opportunity[]> {
+    return this.competitorMonitor.findTopSignalsForUser(userId, limit);
+  }
 }

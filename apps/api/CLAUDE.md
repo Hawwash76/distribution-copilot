@@ -46,7 +46,7 @@ Controller route → thin: validate (Zod) + auth guard + call one service + retu
 | `stats`              | `GET /stats`                                                                                                                       | Aggregate dashboard stats for the authenticated user |
 | `monitors`           | `GET /products/:id/monitors`, `PATCH /products/:id/monitors/:source`                                                               | Per-source monitoring toggles                        |
 | `billing`            | `GET /billing/status`, `POST /billing/checkout`, `POST /billing/portal`, `POST /billing/webhook`                                   | Stripe + trial management                            |
-| `competitor-monitor` | `GET /products/:id/competitor-monitor`                                                                                             | Opportunities flagged as competitor signals          |
+| `competitor-monitor` | `GET /products/:id/competitor-monitor`, `GET /competitor-monitor/priority`                                                         | Competitor signals; latter is cross-product top-N    |
 | `research`           | `GET /products/:id/research/pain-points`                                                                                           | Pain points aggregated by frequency × intensity      |
 
 ## Folder conventions
