@@ -150,7 +150,8 @@ filters) live in `common/`, not duplicated per feature.
   codes (see [`api-design.md`](api-design.md) §6). Expected failures are typed errors, not
   500s.
 - Use a **global exception filter** (in `common/`) to map uncaught errors to safe
-  responses and report unexpected ones to **Sentry** with request context (no PII).
+  responses. Sentry reporting for unexpected errors is deferred — not currently wired
+  (see root `CLAUDE.md` §13); logged via `Logger` in the meantime.
 - Use the NestJS **`Logger`** for structured logging. No `console.log` in the API.
 - **Never swallow errors.** No empty catches; attach context and rethrow or let it
   propagate to the filter.

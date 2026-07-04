@@ -127,8 +127,8 @@ src/
   vendor SDKs or hold Prisma queries inline.
 - **Per-queue concurrency** tuned to external rate limits.
 - **Errors:** transient → BullMQ retry with backoff; permanent → dead-letter queue +
-  logged context; unexpected failures reported to Sentry. One bad job never crashes the
-  process.
+  logged context. One bad job never crashes the process. (Sentry reporting for
+  unexpected failures is deferred — not currently wired, see root `CLAUDE.md` §13.)
 
 ## Job design rules (non-negotiable)
 

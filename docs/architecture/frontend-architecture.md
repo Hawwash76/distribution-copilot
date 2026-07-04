@@ -48,7 +48,7 @@ apps/web/src/
 ├── lib/
 │   ├── api-client.ts           # apiFetch() — typed REST calls to the API
 │   ├── query-client.ts         # server/browser QueryClient factory
-│   ├── monitoring.ts           # Sentry + PostHog (env-gated, opt-in)
+│   ├── monitoring.ts           # PostHog (env-gated, opt-in)
 │   └── utils.ts                # cn() etc.
 └── store/
     └── use-app-store.ts        # Zustand: ephemeral UI state only
@@ -157,11 +157,11 @@ URL · ephemeral UI → Zustand · component-local → `useState`.
 
 ## 8. Monitoring
 
-- `lib/monitoring.ts` holds **opt-in, env-gated** Sentry + PostHog setup that no-ops until
-  env vars are present. PostHog `capture_pageview` is off by default (capture
-  deliberately).
-- **PostHog = product events, Sentry = errors.** Never log PII or secrets to either.
-  `NEXT_PUBLIC_*` vars are public — no secrets there.
+- `lib/monitoring.ts` holds **opt-in, env-gated** PostHog setup that no-ops until its env
+  var is present. PostHog `capture_pageview` is off by default (capture deliberately).
+- **PostHog = product events.** Never log PII or secrets to it. `NEXT_PUBLIC_*` vars are
+  public — no secrets there. Sentry error reporting was removed pending a real DSN — see
+  root `CLAUDE.md` §13; `error.tsx` currently `console.error`s instead of reporting.
 
 ---
 

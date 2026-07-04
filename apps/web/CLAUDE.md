@@ -92,5 +92,5 @@ pnpm --filter @distribution-copilot/web type-check
 pnpm --filter @distribution-copilot/web lint
 ```
 
-Key env: `NEXT_PUBLIC_API_URL` (API base URL), `NEXT_PUBLIC_POSTHOG_KEY/HOST`,
-`NEXT_PUBLIC_SENTRY_DSN`. Only non-secret values belong under `NEXT_PUBLIC_*`.
+Key env: `NEXT_PUBLIC_API_URL` (API base URL), `NEXT_PUBLIC_POSTHOG_KEY/HOST`. Only
+non-secret values belong under `NEXT_PUBLIC_*`.

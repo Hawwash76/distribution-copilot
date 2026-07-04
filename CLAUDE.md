@@ -342,8 +342,8 @@ tokens, and scraped content.
   third-party tokens encrypted at rest. Respect every platform's ToS and rate limits.
 - **Parameterized queries only.** Use Prisma's query API; never build raw SQL by string
   concatenation. If raw SQL is unavoidable, use Prisma's tagged-template `$queryRaw`.
-- **PII discipline.** Minimize what we store. Don't put PII or secrets in logs, Sentry
-  breadcrumbs, or PostHog events.
+- **PII discipline.** Minimize what we store. Don't put PII or secrets in logs or
+  PostHog events (or Sentry breadcrumbs, once error reporting is wired — see §13).
 - **Output safety.** AI-generated replies are drafts shown to a human — never posted
   automatically (see §1). Surface risk assessments prominently.
 
@@ -401,16 +401,17 @@ any deliberate "good enough for now" decision so the future scaling path is obvi
   context and rethrow, or let it propagate to the global handler. Don't convert errors
   into silent `null`s that hide failures downstream.
 - **Distinguish expected from unexpected.** Expected outcomes (not found, validation
-  failed) are typed results/errors. Unexpected ones go to Sentry.
+  failed) are typed results/errors. Unexpected ones are logged with context (error
+  reporting via Sentry is deferred — not currently wired, see §13).
 - **Worker jobs:** rely on BullMQ retries with backoff for transient failures; make
   processors idempotent so retries are safe; route permanent failures to a dead-letter
   queue and log enough context to diagnose. Never let one bad job crash the worker.
 - **External calls** (platforms, AI providers) get timeouts, bounded retries with
   backoff, and explicit handling of rate limits (`429`). Treat third-party APIs as
   unreliable.
-- **Observability:** report unexpected errors to **Sentry** with request/job context
-  (but no PII/secrets). Use structured logging (NestJS `Logger`). Product events go to
-  **PostHog**, never errors-as-analytics.
+- **Observability:** use structured logging (NestJS `Logger`) with request/job context
+  (no PII/secrets). Product events go to **PostHog**, never errors-as-analytics. Error
+  reporting via Sentry is a deferred piece of work (§13) — not currently wired anywhere.
 - **Validate env at startup**, not lazily at first use — fail fast on misconfiguration.
 
 ---
@@ -508,7 +509,7 @@ These are **decided**. Do not introduce alternatives without a new ADR in
 | Background jobs | BullMQ + Redis                                                                 |
 | AI              | Provider-abstracted in `packages/ai`                                           |
 | Auth            | Better Auth                                                                    |
-| Monitoring      | Sentry (errors) + PostHog (product analytics)                                  |
+| Monitoring      | PostHog (product analytics); Sentry (errors) — deferred, not yet wired         |
 | Tooling         | ESLint (strict flat config), Prettier, TypeScript (strict), Husky, lint-staged |
 
 Versions are pinned per workspace `package.json`; Node `>= 20` (Node 22 via `.nvmrc`),

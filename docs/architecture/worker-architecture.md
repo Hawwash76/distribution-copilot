@@ -107,8 +107,8 @@ periodic re-runs. Each stage is single-purpose and idempotent.
 3. **Typed payloads & results.** Define `*.types.ts` per queue; validate the payload at
    the start of the processor (Zod) — enqueued data is still input.
 4. **Bounded & observable.** Every job has a timeout and a retry policy with exponential
-   backoff. Log start/finish with job id + context (no PII/secrets); report unexpected
-   failures to Sentry.
+   backoff. Log start/finish with job id + context (no PII/secrets). Reporting unexpected
+   failures to Sentry is deferred — not currently wired (see root `CLAUDE.md` §13).
 5. **Respect external limits.** Set per-queue **concurrency** to honor platform and AI
    provider rate limits. Handle `429`/backoff explicitly. We are guests on these
    platforms (see [`product.md`](product.md)) — never circumvent rate limits or anti-bot

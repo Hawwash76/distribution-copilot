@@ -1,8 +1,8 @@
 /**
- * Monitoring placeholders (Sentry + PostHog).
+ * Monitoring placeholder (PostHog).
  *
- * Nothing is initialized automatically — these are opt-in helpers that no-op
- * until the relevant environment variables are set. Wire them into a client
+ * Nothing is initialized automatically — this is an opt-in helper that no-ops
+ * until the relevant environment variable is set. Wire it into a client
  * provider / instrumentation hook when monitoring is actually turned on.
  */
 import posthog from "posthog-js";
@@ -19,7 +19,3 @@ export function initAnalytics(): void {
     capture_pageview: false,
   });
 }
-
-// Sentry placeholder:
-// Configure via `@sentry/nextjs` (instrumentation.ts + sentry.*.config.ts)
-// once NEXT_PUBLIC_SENTRY_DSN / SENTRY_DSN are provided.

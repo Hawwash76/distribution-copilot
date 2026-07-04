@@ -385,22 +385,28 @@ templates under `packages/ai/prompts/<capability>/`, separate from logic.
 
 ## ADR-015 — Sentry + PostHog for monitoring
 
-**Status:** Accepted
+**Status:** Accepted (Sentry implementation deferred)
 
 **Context.** We need error tracking across web/api/worker and product analytics to
 understand usage — with a clean separation between "something broke" and "a user did
 something."
 
 **Decision.** Use **Sentry** for error/exception tracking and performance, and **PostHog**
-for product analytics. Both are wired as opt-in placeholders today
-(`apps/web/src/lib/monitoring.ts`) that no-op until their env vars are set, so local dev
-and CI need no monitoring config.
+for product analytics. PostHog is wired as an opt-in placeholder
+(`apps/web/src/lib/monitoring.ts`) that no-ops until `NEXT_PUBLIC_POSTHOG_KEY` is set.
+Sentry was scaffolded (web-only, never on `apps/api`/`apps/worker`) and then **removed**
+— it will be re-implemented properly (all three services, not just web) once there's a
+real DSN to configure it against, rather than carrying partial/inconsistent wiring in the
+meantime.
 
 **Consequences.**
 
-- _Positive:_ unexpected errors surface with context; product decisions are data-informed;
-  env-gated so non-prod environments stay quiet.
-- _Negative:_ two third-party services to configure and keep free of PII.
-- _Constraint:_ **errors → Sentry, product events → PostHog** (never errors-as-analytics);
-  **no PII or secrets** in either; nothing initializes without its env var. See
-  [`CLAUDE.md`](../../CLAUDE.md) §10.
+- _Positive:_ product decisions are data-informed today; env-gated so non-prod
+  environments stay quiet; no half-wired error-reporting code to maintain until it's
+  actually going to be used.
+- _Negative:_ unexpected errors are only visible via structured logs until Sentry is
+  reintroduced — no cross-service error aggregation in the meantime.
+- _Constraint:_ **product events → PostHog**, never errors-as-analytics; **no PII or
+  secrets** logged; nothing initializes without its env var. When Sentry is
+  reintroduced, wire it consistently across `web`, `api`, and `worker` in the same
+  change. See [`CLAUDE.md`](../../CLAUDE.md) §10, §13.

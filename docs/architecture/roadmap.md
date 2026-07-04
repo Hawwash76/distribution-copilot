@@ -126,9 +126,9 @@ Close the loop (to the human).
 ### Phase 9 — Landing page & launch prep (done)
 
 - Marketing site, `robots.ts`/`sitemap.ts`, PostHog wired in `apps/web`.
-- **Open gap:** Sentry is wired on the web side (`sentry.client/server.config.ts`) but
-  `apps/web/src/app/error.tsx` still only `console.error`s instead of reporting, and
-  `apps/api` has no Sentry wiring at all (see `apps/api/CLAUDE.md`).
+- Sentry error reporting was scaffolded then removed — deliberately deferred until it's
+  actually configured with a DSN (see root `CLAUDE.md` §13). Errors are logged via
+  `console.error` (web) / NestJS `Logger` (api/worker) in the meantime.
 
 ### Phase 10 — Real-time alerts (done)
 

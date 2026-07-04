@@ -15,7 +15,6 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO: report to Sentry when SENTRY_DSN is configured
     console.error(error);
   }, [error]);
 

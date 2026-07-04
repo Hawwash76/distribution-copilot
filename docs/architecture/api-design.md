@@ -164,15 +164,15 @@ export class OpportunityController {
 Throw NestJS `HttpException` subclasses so the framework serializes a consistent JSON error
 and the client can map the status to UX:
 
-| Exception (status)                   | When                                           |
-| ------------------------------------ | ---------------------------------------------- |
-| `UnauthorizedException` (401)        | No/invalid session.                            |
-| `ForbiddenException` (403)           | Authenticated but not allowed (not the owner). |
-| `NotFoundException` (404)            | Resource doesn't exist (or isn't the user's).  |
-| `BadRequestException` (400)          | Validation/semantic input error.               |
-| `ConflictException` (409)            | Uniqueness / state conflict (e.g. duplicate).  |
-| Rate-limit (429)                     | Throttled requests.                            |
-| `InternalServerErrorException` (500) | Unexpected failure (also reported to Sentry).  |
+| Exception (status)                   | When                                            |
+| ------------------------------------ | ----------------------------------------------- |
+| `UnauthorizedException` (401)        | No/invalid session.                             |
+| `ForbiddenException` (403)           | Authenticated but not allowed (not the owner).  |
+| `NotFoundException` (404)            | Resource doesn't exist (or isn't the user's).   |
+| `BadRequestException` (400)          | Validation/semantic input error.                |
+| `ConflictException` (409)            | Uniqueness / state conflict (e.g. duplicate).   |
+| Rate-limit (429)                     | Throttled requests.                             |
+| `InternalServerErrorException` (500) | Unexpected failure (Sentry reporting deferred). |
 
 Rules:
 
@@ -180,8 +180,8 @@ Rules:
   global exception filter maps to a safe status + message; log the detail server-side.
 - **Expected outcomes are typed errors, not 500s.** "Not found" is a `NotFoundException`,
   not a thrown internal error.
-- **Unexpected errors go to Sentry** with request context (no PII/secrets) and surface as
-  `500`.
+- **Unexpected errors surface as `500`** and are logged with request context
+  (no PII/secrets). Sentry reporting is deferred — not currently wired.
 - Zod validation failures map to `400 Bad Request` with field information from the Zod
   error.
 

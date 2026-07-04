@@ -13,19 +13,19 @@ reply generation, and risk-analysis systems will be built on top of.
 
 ## Stack
 
-| Area            | Technology                                                            |
-| --------------- | --------------------------------------------------------------------- |
-| Monorepo        | [Turborepo](https://turbo.build) + [pnpm workspaces](https://pnpm.io) |
-| Frontend        | Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui             |
-| Frontend state  | TanStack Query, Zustand, TanStack Table                               |
-| Backend         | NestJS                                                                |
-| API contract    | REST (NestJS controllers) + Zod                                       |
-| Database        | PostgreSQL + pgvector, Prisma                                         |
-| Background jobs | BullMQ + Redis                                                        |
-| Auth            | Better Auth                                                           |
-| Validation      | Zod (shared schemas)                                                  |
-| Monitoring      | Sentry, PostHog                                                       |
-| Tooling         | ESLint (strict), Prettier, TypeScript (strict), Husky, lint-staged    |
+| Area            | Technology                                                               |
+| --------------- | ------------------------------------------------------------------------ |
+| Monorepo        | [Turborepo](https://turbo.build) + [pnpm workspaces](https://pnpm.io)    |
+| Frontend        | Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui                |
+| Frontend state  | TanStack Query, Zustand, TanStack Table                                  |
+| Backend         | NestJS                                                                   |
+| API contract    | REST (NestJS controllers) + Zod                                          |
+| Database        | PostgreSQL + pgvector, Prisma                                            |
+| Background jobs | BullMQ + Redis                                                           |
+| Auth            | Better Auth                                                              |
+| Validation      | Zod (shared schemas)                                                     |
+| Monitoring      | PostHog (Sentry deferred — see `docs/architecture/decisions.md` ADR-015) |
+| Tooling         | ESLint (strict), Prettier, TypeScript (strict), Husky, lint-staged       |
 
 ## Monorepo structure
 
