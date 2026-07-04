@@ -2,12 +2,13 @@ import { Body, Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from "
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
+import { SubscriptionGuard } from "../../common/subscription.guard";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import
 import { DiscoveryService } from "./discovery.service";
 import { triggerDiscoverySchema, type TriggerDiscoveryInput } from "./dto/trigger-discovery.input";
 
 @Controller("products")
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, SubscriptionGuard)
 export class DiscoveryController {
   constructor(private readonly discoveryService: DiscoveryService) {}
 

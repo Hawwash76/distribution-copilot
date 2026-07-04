@@ -3,11 +3,12 @@ import { type Opportunity } from "@distribution-copilot/shared";
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
+import { SubscriptionGuard } from "../../common/subscription.guard";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { CompetitorMonitorService } from "./competitor-monitor.service";
 
 @Controller("products")
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, SubscriptionGuard)
 export class CompetitorMonitorController {
   constructor(private readonly competitorMonitorService: CompetitorMonitorService) {}
 

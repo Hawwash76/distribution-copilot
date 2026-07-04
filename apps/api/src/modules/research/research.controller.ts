@@ -3,11 +3,12 @@ import { type AggregatedPainPoint } from "@distribution-copilot/shared";
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
+import { SubscriptionGuard } from "../../common/subscription.guard";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { ResearchService } from "./research.service";
 
 @Controller("products")
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, SubscriptionGuard)
 export class ResearchController {
   constructor(private readonly researchService: ResearchService) {}
 

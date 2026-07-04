@@ -2,11 +2,13 @@ import { Module } from "@nestjs/common";
 import { createProvider } from "@distribution-copilot/ai";
 
 import { PrismaService } from "../../common/prisma.service";
+import { BillingModule } from "../billing/billing.module";
 import { ProductsController } from "./products.controller";
 import { ProductsRepository } from "./products.repository";
 import { ProductsService } from "./products.service";
 
 @Module({
+  imports: [BillingModule],
   controllers: [ProductsController],
   providers: [
     ProductsService,

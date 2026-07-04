@@ -3,6 +3,7 @@ import { type MonitorStatus, toggleMonitorInputSchema } from "@distribution-copi
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
+import { SubscriptionGuard } from "../../common/subscription.guard";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { MonitorsService } from "./monitors.service";
 
@@ -12,7 +13,7 @@ import { MonitorsService } from "./monitors.service";
  * GET  /products/:id/monitors         → list all 6 sources with enabled + lastCheckedAt
  * PATCH /products/:id/monitors/:source → toggle { enabled: boolean }
  */
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, SubscriptionGuard)
 @Controller("products/:id/monitors")
 export class MonitorsController {
   constructor(private readonly service: MonitorsService) {}

@@ -17,11 +17,12 @@ import {
 
 import { SessionGuard } from "../auth/session.guard";
 import { CurrentUser } from "../auth/session.decorator";
+import { SubscriptionGuard } from "../../common/subscription.guard";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- NestJS DI requires value import for constructor token metadata
 import { OpportunitiesService } from "./opportunities.service";
 
 @Controller("products")
-@UseGuards(SessionGuard)
+@UseGuards(SessionGuard, SubscriptionGuard)
 export class OpportunitiesController {
   constructor(private readonly opportunitiesService: OpportunitiesService) {}
 

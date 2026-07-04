@@ -5,8 +5,10 @@ import { redisConnection } from "./redis-connection.js";
 import { DiscoveryController } from "./discovery.controller.js";
 import { DiscoveryService } from "./discovery.service.js";
 import { PrismaService } from "../../common/prisma.service.js";
+import { BillingModule } from "../billing/billing.module.js";
 
 @Module({
+  imports: [BillingModule],
   controllers: [DiscoveryController],
   providers: [
     DiscoveryService,
