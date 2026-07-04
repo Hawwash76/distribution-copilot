@@ -1,3 +1,9 @@
+// Must load before any other import — `./config/auth` builds the Better Auth
+// singleton (trustedOrigins, secret, baseURL) at import time by reading
+// process.env directly, which is too early for @nestjs/config's ConfigModule
+// (it only loads .env once AppModule's decorator runs, well after this file's
+// other imports have already resolved).
+import "dotenv/config";
 import "reflect-metadata";
 
 import { Logger } from "@nestjs/common";
