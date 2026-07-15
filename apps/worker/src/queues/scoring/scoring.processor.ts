@@ -35,6 +35,17 @@ const payloadSchema = zod.object({
 const AUTO_DISMISS_THRESHOLD = 35;
 
 /**
+ * Minimum relevanceScore required to surface an opportunity, applied
+ * alongside AUTO_DISMISS_THRESHOLD. The weighted overall score (35% intent +
+ * 35% relevance + 20% engagement + 10% recency) lets a highly-engaged or very
+ * recent but off-topic post clear AUTO_DISMISS_THRESHOLD on engagement/recency
+ * alone — this floor makes topical relevance a hard requirement instead of
+ * something engagement/recency can compensate for. Set deliberately high
+ * (quality over quantity): only moderate-or-better relevance surfaces.
+ */
+const MIN_RELEVANCE_SCORE = 40;
+
+/**
  * Scores all `new` opportunities for a product, then assesses engagement risk
  * for each opportunity that received full AI scoring.
  *
@@ -143,14 +154,17 @@ export async function runScoring(
         riskModel,
         replyDraft: draft.draft,
         replyDraftModel: draftModel,
-        status: overallScore >= AUTO_DISMISS_THRESHOLD ? "scored" : "dismissed",
+        status:
+          overallScore >= AUTO_DISMISS_THRESHOLD && scores.relevanceScore >= MIN_RELEVANCE_SCORE
+            ? "scored"
+            : "dismissed",
       });
 
       log(
         `[scoring] opp=${opp.id} intent=${String(scores.intentScore)} relevance=${String(scores.relevanceScore)} signal=${scores.signalType} engagement=${String(engagementScore)} recency=${String(recencyScore)} overall=${String(overallScore)} risk=${overallRisk}`,
       );
       opportunitiesScored++;
-      if (overallScore >= AUTO_DISMISS_THRESHOLD) {
+      if (overallScore >= AUTO_DISMISS_THRESHOLD && scores.relevanceScore >= MIN_RELEVANCE_SCORE) {
         scoredOpportunityIds.push(opp.id);
 
         // Extract pain points from the discussion content (once per discussion,

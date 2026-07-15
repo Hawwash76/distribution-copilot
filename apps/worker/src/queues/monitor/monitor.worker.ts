@@ -13,9 +13,12 @@ const DEFAULT_INTERVAL_MINUTES = 30;
 /**
  * Starts the monitor worker and registers the repeatable sweep job.
  *
- * BullMQ deduplicates repeatable jobs by queue + every pattern, so calling
- * this on every startup is safe — it acts as an upsert. The sweep runs at
- * the configured interval and finds all enabled ProductMonitor rows itself.
+ * BullMQ keys a repeatable job by its exact repeat options, so re-adding one
+ * with a *different* `every` (e.g. after changing MONITOR_INTERVAL_MINUTES
+ * and restarting) does not replace the old schedule — it registers a second
+ * one alongside it, and both keep firing forever. To keep this an idempotent
+ * upsert regardless of interval changes, every existing "monitor-sweep"
+ * schedule is removed before the current one is added.
  */
 export function startMonitorWorker(): Worker {
   const intervalMs =
@@ -24,15 +27,23 @@ export function startMonitorWorker(): Worker {
     1_000;
 
   const queue = new Queue(MONITOR_QUEUE, { connection: redisConnection });
-  void queue.add(
-    "monitor-sweep",
-    {},
-    {
-      repeat: { every: intervalMs },
-      removeOnComplete: { count: 20 },
-      removeOnFail: { count: 20 },
-    },
-  );
+  void (async () => {
+    const existing = await queue.getRepeatableJobs();
+    await Promise.all(
+      existing
+        .filter((job) => job.name === "monitor-sweep")
+        .map((job) => queue.removeRepeatableByKey(job.key)),
+    );
+    await queue.add(
+      "monitor-sweep",
+      {},
+      {
+        repeat: { every: intervalMs },
+        removeOnComplete: { count: 20 },
+        removeOnFail: { count: 20 },
+      },
+    );
+  })();
 
   const worker = new Worker(MONITOR_QUEUE, async (job) => runMonitor((msg) => job.log(msg)), {
     connection: redisConnection,

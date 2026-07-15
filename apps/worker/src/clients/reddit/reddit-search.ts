@@ -141,8 +141,24 @@ function toRedditTimeBucket(since?: Date): string {
  * This handles both self posts (link already a Reddit URL) and link posts
  * (link points to an external URL — URL is reconstructed).
  *
- * When options.since is provided the nearest time bucket (week/month/year) is used;
- * exact epoch filtering is not supported by the Reddit RSS API.
+ * Always sorts by "relevance" and always applies a time bucket (week/month/year,
+ * the nearest one covering `options.since`, or "year" when since is omitted)
+ * — every caller (one-shot discovery, manual "Run Discovery", the recurring
+ * monitor sweep) gets identical, predictable search behavior: the best-matching
+ * posts *within* the time window, rather than a pure chronological feed (which
+ * has no relevance weighting at all) or relevance with no time bound (which
+ * ranks across Reddit's entire history and was the main source of wildly
+ * off-topic results). Exact epoch filtering is not supported by the Reddit
+ * RSS API — only the coarse bucket.
+ *
+ * Multi-word queries are phrase-quoted (`"exact phrase"`) rather than sent as
+ * bare space-separated words. Reddit's search treats an unquoted multi-word
+ * query as effectively an OR across the individual words — e.g. "email
+ * sequence software" would match anything containing just "email" or just
+ * "software" — which floods results with noise dominated by whichever word is
+ * most common. Quoting scopes the match to the phrase (or very close
+ * variants); paraphrases are still caught downstream by the isRelevant()
+ * word-overlap pre-filter, so this doesn't meaningfully cost recall.
  */
 export const redditSource: DiscoverySource = {
   name: "reddit",
@@ -153,19 +169,16 @@ export const redditSource: DiscoverySource = {
     options?: DiscoverySearchOptions,
     log: (msg: string) => void = console.log,
   ): Promise<DiscoveryResult[]> {
-    // Use relevance sort for one-shot discovery (best quality signal).
-    // When monitoring (options.since is set) we switch to "new" so we only
-    // pick up posts published after the last check window.
-    const sort = options?.since ? "new" : "relevance";
+    const trimmedQuery = query.trim();
+    const searchQuery = trimmedQuery.includes(" ") ? `"${trimmedQuery}"` : trimmedQuery;
+
     const params = new URLSearchParams({
-      q: query,
-      sort,
+      q: searchQuery,
+      sort: "relevance",
       limit: String(Math.min(limit, 25)),
       type: "link", // submissions only — excludes subreddit and user results
+      t: toRedditTimeBucket(options?.since),
     });
-    if (options?.since) {
-      params.set("t", toRedditTimeBucket(options.since));
-    }
 
     const feedUrl = `${REDDIT_RSS_URL}?${params.toString()}`;
     const MAX_ATTEMPTS = 3;

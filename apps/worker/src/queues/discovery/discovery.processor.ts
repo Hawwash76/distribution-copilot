@@ -11,6 +11,8 @@ import {
 } from "../../clients/stackoverflow/stackoverflow-search.js";
 import { lobstersSource } from "../../clients/lobsters/lobsters-search.js";
 import { devToSource } from "../../clients/devto/devto-search.js";
+import { withShortVariants } from "../../clients/query-variants.js";
+import { isRelevant, isTooOld } from "../../clients/relevance-filter.js";
 import { redisConnection } from "../../config/redis.js";
 import { EXTRACT_QUEUE } from "../extract/extract.types.js";
 import { type DiscoveryJobPayload, type DiscoveryJobResult } from "./discovery.types.js";
@@ -22,20 +24,20 @@ const payloadSchema = zod.object({
 });
 
 /**
- * Maximum age of a discovered post in days. Results with a known publishedAt
- * older than this are dropped before enqueuing. Results with no publishedAt
- * (source didn't provide one at discovery time) are always kept.
- *
- * This applies regardless of any `since` passed on the job — it's the last line
- * of defense for sources (Lobsters, Dev.to) that never filter server-side.
+ * Maximum number of keywords to search per run. Kept lower than pain points —
+ * AI-generated keywords read like marketing/SEO phrases ("B2B prospecting
+ * tool") that real users rarely search verbatim, so they're a weaker signal
+ * than pain points (see MAX_PAIN_POINT_QUERIES).
  */
-const MAX_RESULT_AGE_DAYS = 90;
+const MAX_KEYWORDS = 3;
 
-/** Maximum number of keywords to search per run. */
-const MAX_KEYWORDS = 5;
-
-/** Maximum number of pain points to use as additional search queries. */
-const MAX_PAIN_POINT_QUERIES = 3;
+/**
+ * Maximum number of pain points to use as additional search queries.
+ * Prioritized over keywords — pain points describe the problem in customer
+ * language ("emails landing in spam") and are far more likely to match how
+ * real users actually phrase a post than a marketing keyword phrase.
+ */
+const MAX_PAIN_POINT_QUERIES = 5;
 
 /** Maximum number of competitor names to use in the competitor-tracking pass. */
 const MAX_COMPETITORS = 3;
@@ -72,35 +74,6 @@ const SOURCES: DiscoverySource[] = [
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Returns true when publishedAt is known and older than MAX_RESULT_AGE_DAYS. */
-function isTooOld(publishedAt?: string): boolean {
-  if (!publishedAt) return false;
-  const date = new Date(publishedAt);
-  if (isNaN(date.getTime())) return false;
-  return (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24) > MAX_RESULT_AGE_DAYS;
-}
-
-/**
- * Returns true when the title or snippet contains enough signal words from
- * at least one of the given terms to be worth extracting.
- *
- * For each term, all words longer than 3 characters must appear in the text.
- * This catches paraphrased language ("my emails keep going to spam" matches
- * the term "emails landing spam") without requiring an exact phrase match.
- * Short stop-words (a, an, the, in, to, …) are skipped automatically.
- */
-function isRelevant(title: string, snippet: string, terms: string[]): boolean {
-  if (terms.length === 0) return true;
-  const text = `${title} ${snippet}`.toLowerCase();
-  return terms.some((term) => {
-    const words = term
-      .toLowerCase()
-      .split(/\W+/)
-      .filter((w) => w.length > 3);
-    return words.length > 0 && words.every((w) => text.includes(w));
-  });
 }
 
 /**
@@ -215,8 +188,14 @@ export async function runDiscovery(
   // When a source filter is provided, only that platform is searched.
   const activeSources = source ? SOURCES.filter((s) => s.name === source) : SOURCES;
 
+  // Expand each keyword with a shorter, more natural fragment (e.g. "B2B
+  // prospecting tool" → also search "prospecting tool") — real users rarely
+  // type the full marketing phrase verbatim. relevanceTerms above still uses
+  // the original keywordQueries, since the short variant is a subset match.
+  const keywordSearchQueries = withShortVariants(keywordQueries);
+
   log(
-    `[discovery] keyword pass: queries=${keywordQueries.join(" | ")} sources=${activeSources.map((s) => s.name).join(", ")}`,
+    `[discovery] keyword pass: queries=${keywordSearchQueries.join(" | ")} sources=${activeSources.map((s) => s.name).join(", ")}`,
   );
 
   const extractQueue = new Queue(EXTRACT_QUEUE, { connection: redisConnection });
@@ -230,7 +209,7 @@ export async function runDiscovery(
   }[] = [];
 
   await searchAllSources(
-    keywordQueries,
+    keywordSearchQueries,
     activeSources,
     seenUrls,
     urlsToExtract,
@@ -274,10 +253,13 @@ export async function runDiscovery(
   }
 
   if (competitorNames.length > 0) {
-    // Two high-signal query patterns per competitor: frustration + comparison
+    // High-signal query patterns per competitor: seeking an alternative,
+    // direct comparison, and active churn ("switching from X") — the last is
+    // one of the strongest buying-intent signals and reads naturally as-is.
     const competitorQueries = competitorNames.flatMap((name) => [
       `${name} alternative`,
       `${name} vs`,
+      `switching from ${name}`,
     ]);
 
     log(`[discovery] competitor pass: queries=${competitorQueries.join(" | ")}`);

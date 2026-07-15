@@ -7,22 +7,27 @@
     "build": "tsc",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
+    "bull-board": "tsx src/dev/bull-board.ts",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
+    "@bull-board/api": "^8.1.1",
+    "@bull-board/express": "^8.1.1",
     "@distribution-copilot/ai": "workspace:*",
     "@distribution-copilot/config": "workspace:*",
     "@distribution-copilot/database": "workspace:*",
     "@distribution-copilot/shared": "workspace:*",
     "bullmq": "^5.34.10",
     "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "ioredis": "^5.4.2"
   },
   "devDependencies": {
     "@distribution-copilot/eslint-config": "workspace:*",
     "@distribution-copilot/typescript-config": "workspace:*",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.10.7",
     "eslint": "^9.18.0",
     "rimraf": "^6.0.1",

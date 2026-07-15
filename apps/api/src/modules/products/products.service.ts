@@ -17,7 +17,7 @@ import { DiscoveryService } from "../discovery/discovery.service";
 import { MonitorsService } from "../monitors/monitors.service";
 
 /** Days of history to backfill via discovery every time a profile is saved. */
-const BACKFILL_DAYS = 90;
+const BACKFILL_DAYS = 60;
 
 /** Business logic for product management. All operations are scoped to the authenticated user. */
 @Injectable()

@@ -172,12 +172,22 @@ src/
 ## Commands
 
 ```bash
-pnpm --filter @distribution-copilot/worker dev       # tsx watch; logs on start
+pnpm --filter @distribution-copilot/worker dev         # tsx watch; logs on start
 pnpm --filter @distribution-copilot/worker build
 pnpm --filter @distribution-copilot/worker type-check
+pnpm --filter @distribution-copilot/worker bull-board  # live queue UI at http://localhost:3849
 ```
 
 Key env: `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` (optional), `DATABASE_URL`,
 `STACK_EXCHANGE_KEY` (optional — free tier 300 req/day without it),
-`MONITOR_INTERVAL_MINUTES` (optional — default 30).
+`MONITOR_INTERVAL_MINUTES` (optional — default 30), `BULL_BOARD_PORT` (optional — default 3849).
 AI provider keys are read by `packages/ai`.
+
+### Local dev tool: Bull Board
+
+`src/dev/bull-board.ts` is a standalone script (not wired into `main.ts`/`bootstrap()`) that
+serves a live web UI over all 5 queues — waiting/active/completed/failed jobs, payloads,
+retry counts. Deliberately kept separate from the worker's own boot sequence: the worker
+process itself must stay HTTP-free (see Boundaries above); this is a manually-run,
+read-only observability tool, run alongside `pnpm dev` when you want to inspect queue state
+instead of `redis-cli`.
